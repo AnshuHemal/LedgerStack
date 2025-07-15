@@ -1,0 +1,675 @@
+import mongoose from "mongoose";
+
+const UserSchema = mongoose.Schema(
+  {
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+    },
+
+    password: {
+      type: String,
+      required: true,
+    },
+
+    name: {
+      type: String,
+      required: true,
+    },
+
+    isverified: {
+      type: Boolean,
+      default: false,
+    },
+
+    lastLogin: {
+      type: Date,
+      default: Date.now(),
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+const OtpSchema = mongoose.Schema(
+  {
+    email: { type: String, required: true },
+    code: { type: String, required: true },
+    createdAt: { type: Date, default: Date.now, expires: 300 },
+  },
+  { timestamps: true }
+);
+
+const AccountGroupSchema = mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+    },
+    effect: {
+      type: String,
+      required: true,
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+const ProductSchema = mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+    },
+    productGroupId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ProductGroup",
+      required: true,
+    },
+    categoryId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ProductCategory",
+      required: true,
+    },
+    productTypeId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ProductType",
+      required: true,
+    },
+    hsn_sac_code: {
+      type: Number,
+      default: "None",
+    },
+    sale_rate: {
+      type: Number,
+      default: 0.0,
+    },
+    purchase_rate: {
+      type: Number,
+      default: 0.0,
+    },
+    unit: {
+      type: String,
+      required: true,
+    },
+    gst_type: {
+      type: String,
+      required: true,
+    },
+    gst: {
+      type: Number,
+      required: true,
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+  },
+  { timestamps: true }
+);
+
+const ProductGroupSchema = mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+      unique: true,
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+  },
+  { timestamps: true }
+);
+
+const ProductTypeSchema = mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+      unique: true,
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+  },
+  { timestamps: true }
+);
+
+const ProductCategorySchema = mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+      unique: true,
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+  },
+  { timestamps: true }
+);
+
+const TransportationSchema = mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+      unique: true,
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+  },
+  { timestamps: true }
+);
+
+const AccountMasterSchema = mongoose.Schema(
+  {
+    companyName: {
+      type: String,
+    },
+    accountGroup: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "AccountGroup",
+      required: true,
+    },
+    addressLine1: {
+      type: String,
+    },
+    addressLine2: String,
+    addressLine3: String,
+    city: {
+      type: String,
+    },
+    pinCode: {
+      type: String,
+    },
+    state: {
+      type: String,
+    },
+    gstin: {
+      type: String,
+      default: "",
+    },
+    panNo: {
+      type: String,
+    },
+    contactPerson: {
+      type: String,
+      required: true,
+    },
+    mobileNo: {
+      type: String,
+    },
+    email: {
+      type: String,
+    },
+    website: {
+      type: String,
+    },
+    openingBalance: {
+      type: Number,
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+const SalesInvoiceSchema = mongoose.Schema(
+  {
+    cash_debit: {
+      type: String,
+      enum: ["Debit Memo", "Cash Memo"],
+      default: "Debit Memo",
+    },
+    bill_date: {
+      type: Date,
+      required: true,
+    },
+    bill_no: {
+      bill_prefix: {
+        type: String,
+        required: true,
+      },
+      no: {
+        type: Number,
+        required: true,
+        default: 1,
+      },
+    },
+
+    vat_class: {
+      type: String,
+      enum: ["Tax Invoice", "Retail/Bill of Supplier", "Other Invoice"],
+      default: "Tax Invoice",
+    },
+    sales_account: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "AccountMaster",
+      required: true,
+    },
+    po_no: {
+      type: String,
+      default: "",
+    },
+    lr_no: {
+      type: String,
+      default: "",
+    },
+    transportation_account: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "AccountMaster",
+    },
+    trans_doc_no: {
+      type: String,
+      default: "",
+    },
+    trans_date: {
+      type: Date,
+    },
+    delivery_party_account: {
+      gst: { type: String },
+      panNo: { type: String },
+      name: { type: String },
+      addressLine1: { type: String },
+      addressLine2: { type: String },
+      addressLine3: { type: String },
+      city: { type: String },
+      state: { type: String },
+      pinCode: { type: String },
+      mobileNo: { type: String },
+    },
+    products: [
+      {
+        product: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Product",
+          required: true,
+        },
+        boxes: {
+          type: Number,
+          required: true,
+        },
+        no_of_pcs: {
+          type: Number,
+          required: true,
+        },
+        quantity: {
+          type: Number,
+          required: true,
+        },
+        unit: {
+          type: String,
+        },
+        rate: {
+          type: Number,
+        },
+        igst: {
+          type: Number,
+        },
+        cgst: {
+          type: Number,
+        },
+        sgst: {
+          type: Number,
+        },
+        discount: {
+          type: Number,
+        },
+        total_amount: {
+          type: Number,
+        },
+      },
+    ],
+    total_products_amount: {
+      type: Number,
+      default: 0,
+    },
+    freight_amount: {
+      type: Number,
+      default: 0,
+    },
+    final_amount: {
+      type: Number,
+      default: 0,
+    },
+    remarks: {
+      type: String,
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+  },
+  { timestamps: true }
+);
+
+const ProformaBillSchema = mongoose.Schema({
+  no: {
+    type: Number,
+    default: 1,
+  },
+});
+
+const SalesBillSchema = mongoose.Schema({
+  no: {
+    type: Number,
+    default: 1,
+  },
+});
+
+const ProformaInvoiceSchema = mongoose.Schema(
+  {
+    cash_debit: {
+      type: String,
+      enum: ["Debit Memo", "Cash Memo"],
+      default: "Debit Memo",
+    },
+    bill_date: {
+      type: Date,
+      required: true,
+    },
+    bill_no: {
+      bill_prefix: {
+        type: String,
+        required: true,
+      },
+      no: {
+        type: Number,
+        required: true,
+      },
+    },
+
+    vat_class: {
+      type: String,
+      enum: ["Tax Invoice", "Retail/Bill of Supplier", "Other Invoice"],
+      default: "Tax Invoice",
+    },
+    sales_account: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "AccountMaster",
+      required: true,
+    },
+    po_no: {
+      type: String,
+      default: "",
+    },
+    lr_no: {
+      type: String,
+      default: "",
+    },
+    transportation_account: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "AccountMaster",
+    },
+    trans_doc_no: {
+      type: String,
+      default: "",
+    },
+    trans_date: {
+      type: Date,
+    },
+    delivery_party_account: {
+      gst: { type: String },
+      panNo: { type: String },
+      name: { type: String },
+      addressLine1: { type: String },
+      addressLine2: { type: String },
+      addressLine3: { type: String },
+      city: { type: String },
+      state: { type: String },
+      pinCode: { type: String },
+      mobileNo: { type: String },
+    },
+    products: [
+      {
+        product: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Product",
+          required: true,
+        },
+        boxes: {
+          type: Number,
+          required: true,
+        },
+        no_of_pcs: {
+          type: Number,
+          required: true,
+        },
+        quantity: {
+          type: Number,
+          required: true,
+        },
+        unit: {
+          type: String,
+        },
+        rate: {
+          type: Number,
+        },
+        igst: {
+          type: Number,
+        },
+        cgst: {
+          type: Number,
+        },
+        sgst: {
+          type: Number,
+        },
+        discount: {
+          type: Number,
+        },
+        total_amount: {
+          type: Number,
+        },
+      },
+    ],
+    total_products_amount: {
+      type: Number,
+      default: 0,
+    },
+    freight_amount: {
+      type: Number,
+      default: 0,
+    },
+    final_amount: {
+      type: Number,
+      default: 0,
+    },
+    remarks: {
+      type: String,
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+  },
+  { timestamps: true }
+);
+
+const PurchaseInvoiceSchema = mongoose.Schema(
+  {
+    cash_debit: {
+      type: String,
+      enum: ["Debit Memo", "Cash Memo"],
+      default: "Debit Memo",
+    },
+    voucher_date: {
+      type: Date,
+      required: true,
+    },
+    voucher_no: {
+      type: Number,
+      required: true,
+    },
+    bill_date: {
+      type: Date,
+      required: true,
+    },
+    bill_no: {
+      type: Number,
+      required: true,
+    },
+    vat_class: {
+      type: String,
+      enum: ["Tax Invoice", "Retail/Bill of Supplier", "Other Invoice"],
+      default: "Tax Invoice",
+    },
+    purchase_account: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "AccountMaster",
+      required: true,
+    },
+    products: [
+      {
+        product: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Product",
+          required: true,
+        },
+        quantity: {
+          type: Number,
+          required: true,
+        },
+        unit: {
+          type: String,
+        },
+        rate: {
+          type: Number,
+        },
+        igst: {
+          type: Number,
+        },
+        cgst: {
+          type: Number,
+        },
+        sgst: {
+          type: Number,
+        },
+        total_amount: {
+          type: Number,
+        },
+      },
+    ],
+    final_amount: {
+      type: Number,
+      default: 0,
+    },
+    remarks: {
+      type: String,
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+  },
+  { timestamps: true }
+);
+
+const ProformaValidationSchema = mongoose.Schema(
+  {
+    proformaInvoiceId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ProformaInvoice",
+      required: true,
+    },
+    validate: {
+      type: Boolean,
+      default: false,
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+  },
+  { timestamps: true }
+);
+
+const QuickEntrySchema = new mongoose.Schema(
+  {
+    entryType: { type: String, required: true },
+    entryAccount: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "AccountMaster",
+      required: true,
+    },
+    date: { type: Date, required: true },
+    day: { type: String },
+    voucher_no: { type: String },
+    cheque_no: { type: String },
+    account: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "AccountMaster",
+      required: true,
+    },
+    amount: { type: Number, required: true },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+  },
+  { timestamps: true }
+);
+
+export const QuickEntry = mongoose.model("QuickEntry", QuickEntrySchema);
+export const AccountMaster = mongoose.model(
+  "AccountMaster",
+  AccountMasterSchema
+);
+export const AccountGroup = mongoose.model("AccountGroup", AccountGroupSchema);
+export const Product = mongoose.model("Product", ProductSchema);
+export const ProductGroup = mongoose.model("ProductGroup", ProductGroupSchema);
+export const ProductType = mongoose.model("ProductType", ProductTypeSchema);
+export const ProductCategory = mongoose.model(
+  "ProductCategory",
+  ProductCategorySchema
+);
+export const Transportation = mongoose.model(
+  "Transportation",
+  TransportationSchema
+);
+export const SalesInvoice = mongoose.model("SalesInvoice", SalesInvoiceSchema);
+export const PurchaseInvoice = mongoose.model(
+  "PurchaseInvoice",
+  PurchaseInvoiceSchema
+);
+export const ProformaInvoice = mongoose.model(
+  "ProformaInvoice",
+  ProformaInvoiceSchema
+);
+export const ProformaBill = mongoose.model("ProformaBill", ProformaBillSchema);
+export const SalesBill = mongoose.model("SalesBill", SalesBillSchema);
+export const ProformaValidation = mongoose.model(
+  "ProformaValidation",
+  ProformaValidationSchema
+);
+export const Otp = mongoose.model("Otp", OtpSchema);
+export const User = mongoose.model("User", UserSchema);
