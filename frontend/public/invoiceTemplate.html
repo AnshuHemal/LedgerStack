@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tax Invoice</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', Arial, sans-serif;
+            font-size: 9px; /* Reduced base font size */
+            line-height: 1.2; /* Tighter line height */
+            color: #000;
+            background: white;
+            padding: 8px; /* Reduced padding */
+        }
+        
+        .invoice-container {
+            max-width: 100%;
+            margin: 0 auto;
+            background: white;
+            border: 1px solid #000;
+            /* Ensure it fits on A4 page */
+            height: 100vh;
+            max-height: 297mm; /* A4 height */
+            overflow: hidden;
+        }
+        
+        .header {
+            padding: 8px; /* Reduced padding */
+            border-bottom: 1px solid #000;
+            position: relative;
+            min-height: 60px; /* Fixed height */
+        }
+        
+        .logo-section {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px; /* Reduced gap */
+        }
+        
+        .logo {
+            width: 45px; /* Smaller logo */
+            height: 45px;
+            background: #ffd700;
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            flex-shrink: 0;
+        }
+        
+        .logo-text {
+            color: #28a745;
+            font-weight: 700;
+            font-size: 11px; /* Smaller text */
+            text-align: center;
+            line-height: 1.1;
+        }
+        
+        .logo-subtitle {
+            font-size: 5px; /* Smaller subtitle */
+            color: #28a745;
+            text-align: center;
+            margin-top: 1px;
+        }
+        
+        .trademark {
+            position: absolute;
+            top: 1px;
+            right: 1px;
+            font-size: 6px;
+            color: #28a745;
+            font-weight: 600;
+        }
+        
+        .company-info {
+            flex: 1;
+        }
+        
+        .company-name {
+            font-size: 14px; /* Smaller company name */
+            font-weight: 700;
+            color: #000;
+            margin-bottom: 2px;
+        }
+        
+        .tax-invoice-title {
+            font-size: 12px; /* Smaller title */
+            font-weight: 700;
+            color: #000;
+            text-align: center;
+            margin-bottom: 3px;
+        }
+        
+        .company-address {
+            color: #000;
+            line-height: 1.2;
+            margin-bottom: 3px;
+            font-size: 8px; /* Smaller address */
+        }
+        
+        .company-contact {
+            color: #000;
+            margin-bottom: 2px;
+            font-size: 8px;
+        }
+        
+        .company-details {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 3px;
+        }
+        
+        .gst-pan {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .gst-pan span {
+            font-weight: 600;
+            color: #000;
+            font-size: 8px;
+        }
+        
+        .original-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: #000;
+            color: white;
+            padding: 1px 6px;
+            border-radius: 2px;
+            font-size: 6px;
+            font-weight: 600;
+        }
+        
+        .invoice-details {
+            padding: 8px; /* Reduced padding */
+            border-bottom: 1px solid #000;
+            min-height: 50px; /* Fixed height */
+        }
+        
+        .details-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .detail-section h3 {
+            font-size: 9px; /* Smaller headings */
+            font-weight: 600;
+            color: #000;
+            margin-bottom: 5px;
+            padding-bottom: 2px;
+            border-bottom: 1px solid #000;
+        }
+        
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 3px; /* Reduced margin */
+            align-items: center;
+        }
+        
+        .detail-label {
+            font-weight: 500;
+            color: #000;
+            min-width: 60px; /* Reduced width */
+        }
+        
+        .detail-value {
+            font-weight: 600;
+            color: #000;
+            text-align: right;
+        }
+        
+        .party-details {
+            padding: 8px; /* Reduced padding */
+            border-bottom: 1px solid #000;
+            min-height: 60px; /* Fixed height */
+        }
+        
+        .party-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .party-section {
+            border: 1px solid #000;
+            padding: 6px; /* Reduced padding */
+        }
+        
+        .party-section h3 {
+            font-size: 8px; /* Smaller headings */
+            font-weight: 600;
+            color: #000;
+            margin-bottom: 5px;
+            text-align: center;
+        }
+        
+        .party-name {
+            font-weight: 600;
+            color: #000;
+            margin-bottom: 3px;
+            font-size: 8px;
+        }
+        
+        .party-address {
+            color: #000;
+            line-height: 1.1;
+            margin-bottom: 3px;
+            font-size: 7px; /* Smaller text */
+        }
+        
+        .party-contact {
+            color: #000;
+            margin-bottom: 2px;
+            font-size: 7px;
+        }
+        
+        .party-details-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 2px; /* Reduced margin */
+        }
+        
+        .products-section {
+            padding: 8px; /* Reduced padding */
+            min-height: 120px; /* Fixed height for products */
+        }
+        
+        .products-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 8px;
+            font-size: 7px; /* Smaller table text */
+        }
+        
+        .products-table th {
+            background: #f0f0f0;
+            padding: 3px 2px; /* Reduced padding */
+            text-align: center;
+            font-weight: 600;
+            color: #000;
+            border: 1px solid #000;
+            font-size: 7px;
+        }
+        
+        .products-table td {
+            padding: 2px 1px; /* Reduced padding */
+            text-align: center;
+            border: 1px solid #000;
+            font-size: 7px;
+        }
+        
+        .product-name {
+            text-align: left;
+            font-weight: 500;
+            color: #000;
+            max-width: 120px; /* Limit width */
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .totals-section {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 15px;
+            padding: 8px; /* Reduced padding */
+            border-bottom: 1px solid #000;
+            min-height: 80px; /* Fixed height */
+        }
+        
+        .bank-details {
+            border: 1px solid #000;
+            padding: 6px; /* Reduced padding */
+        }
+        
+        .bank-details h3 {
+            font-size: 8px; /* Smaller headings */
+            font-weight: 600;
+            color: #000;
+            margin-bottom: 5px;
+            text-align: center;
+        }
+        
+        .bank-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 2px; /* Reduced margin */
+        }
+        
+        .bank-label {
+            font-weight: 500;
+            color: #000;
+            font-size: 7px;
+        }
+        
+        .bank-value {
+            font-weight: 600;
+            color: #000;
+            font-size: 7px;
+        }
+        
+        .summary-section {
+            text-align: right;
+        }
+        
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 3px; /* Reduced margin */
+            align-items: center;
+        }
+        
+        .summary-label {
+            font-weight: 500;
+            color: #000;
+            margin-right: 10px;
+            font-size: 7px;
+        }
+        
+        .summary-value {
+            font-weight: 600;
+            color: #000;
+            min-width: 60px; /* Reduced width */
+            text-align: right;
+            font-size: 7px;
+        }
+        
+        .invoice-total {
+            font-size: 10px; /* Smaller total */
+            font-weight: 700;
+            color: #000;
+        }
+        
+        .amount-in-words {
+            padding: 6px; /* Reduced padding */
+            border-bottom: 1px solid #000;
+            text-align: center;
+            font-weight: 600;
+            font-size: 8px; /* Smaller text */
+            min-height: 25px; /* Fixed height */
+        }
+        
+        .balance-section {
+            padding: 6px; /* Reduced padding */
+            border-bottom: 1px solid #000;
+            min-height: 40px; /* Fixed height */
+        }
+        
+        .balance-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .balance-item {
+            text-align: center;
+        }
+        
+        .balance-label {
+            font-weight: 600;
+            color: #000;
+            margin-bottom: 3px;
+            font-size: 8px;
+        }
+        
+        .balance-value {
+            font-weight: 700;
+            color: #000;
+            font-size: 9px;
+        }
+        
+        .footer {
+            padding: 6px; /* Reduced padding */
+            min-height: 60px; /* Fixed height */
+        }
+        
+        .terms-section {
+            margin-bottom: 10px; /* Reduced margin */
+        }
+        
+        .terms-title {
+            font-size: 8px; /* Smaller title */
+            font-weight: 600;
+            color: #000;
+            margin-bottom: 5px;
+        }
+        
+        .terms-list {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .terms-list li {
+            color: #000;
+            margin-bottom: 2px; /* Reduced margin */
+            padding-left: 10px; /* Reduced padding */
+            position: relative;
+            font-size: 7px; /* Smaller text */
+            line-height: 1.1;
+        }
+        
+        .terms-list li:before {
+            content: "•";
+            color: #000;
+            font-weight: bold;
+            position: absolute;
+            left: 0;
+        }
+        
+        .signature-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-top: 10px; /* Reduced margin */
+        }
+        
+        .signature-left {
+            text-align: left;
+        }
+        
+        .signature-right {
+            text-align: right;
+        }
+        
+        .signature-line {
+            width: 100px; /* Reduced width */
+            height: 1px;
+            background: #000;
+            margin: 15px 0 3px 0; /* Reduced margin */
+        }
+        
+        .signature-text {
+            font-size: 8px; /* Smaller text */
+            font-weight: 600;
+            color: #000;
+        }
+        
+        .certification-text {
+            font-size: 6px; /* Smaller text */
+            color: #000;
+            margin-top: 3px;
+        }
+        
+        /* Responsive adjustments for different content lengths */
+        .compact-mode {
+            font-size: 8px;
+        }
+        
+        .compact-mode .header {
+            padding: 6px;
+            min-height: 50px;
+        }
+        
+        .compact-mode .invoice-details {
+            padding: 6px;
+            min-height: 40px;
+        }
+        
+        .compact-mode .party-details {
+            padding: 6px;
+            min-height: 50px;
+        }
+        
+        .compact-mode .products-section {
+            padding: 6px;
+            min-height: 100px;
+        }
+        
+        .compact-mode .totals-section {
+            padding: 6px;
+            min-height: 70px;
+        }
+        
+        .compact-mode .amount-in-words {
+            padding: 4px;
+            min-height: 20px;
+        }
+        
+        .compact-mode .balance-section {
+            padding: 4px;
+            min-height: 35px;
+        }
+        
+        .compact-mode .footer {
+            padding: 4px;
+            min-height: 50px;
+        }
+        
+        /* Ultra-compact mode for very long content */
+        .ultra-compact-mode {
+            font-size: 7px;
+        }
+        
+        .ultra-compact-mode .header {
+            padding: 4px;
+            min-height: 40px;
+        }
+        
+        .ultra-compact-mode .invoice-details {
+            padding: 4px;
+            min-height: 35px;
+        }
+        
+        .ultra-compact-mode .party-details {
+            padding: 4px;
+            min-height: 40px;
+        }
+        
+        .ultra-compact-mode .products-section {
+            padding: 4px;
+            min-height: 80px;
+        }
+        
+        .ultra-compact-mode .totals-section {
+            padding: 4px;
+            min-height: 60px;
+        }
+        
+        .ultra-compact-mode .amount-in-words {
+            padding: 3px;
+            min-height: 18px;
+        }
+        
+        .ultra-compact-mode .balance-section {
+            padding: 3px;
+            min-height: 30px;
+        }
+        
+        .ultra-compact-mode .footer {
+            padding: 3px;
+            min-height: 40px;
+        }
+        
+        @media print {
+            body {
+                padding: 0;
+            }
+            
+            .invoice-container {
+                border: none;
+                height: auto;
+                max-height: none;
+                overflow: visible;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="invoice-container" id="invoice-container">
+        <!-- Header Section -->
+        <div class="header">
+            <div class="logo-section">
+                <div class="logo">
+                    <div class="logo-text">Anant</div>
+                    <div class="logo-subtitle">Where End is Undefined</div>
+                    <div class="trademark">®</div>
+                </div>
+                <div class="company-info">
+                    <div class="company-name">ANANT POLYMERS</div>
+                    <div class="tax-invoice-title">TAX INVOICE</div>
+                    <div class="company-address">
+                        A-65, Swastik Industrial Park, Nr. Canal, Kothiya-Kuha Road,<br>
+                        At.Kuha, Ta.Dashkroi, Ahmedabad-382433.
+                    </div>
+                    <div class="company-contact">Email: anantvalve@gmail.com</div>
+                    <div class="company-details">
+                        <div class="gst-pan">
+                            <span>GSTIN No.: 24AMGPP5844B1Z7</span>
+                            <span>PAN No.: AMGPP5844B</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="original-badge">ORIGINAL</div>
+        </div>
+
+        <!-- Invoice Details Section -->
+        <div class="invoice-details">
+            <div class="details-grid">
+                <div class="detail-section">
+                    <h3>Invoice Details</h3>
+                    <div class="detail-row">
+                        <span class="detail-label">Reverse Charge:</span>
+                        <span class="detail-value">N/A</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Invoice No.:</span>
+                        <span class="detail-value" id="invoice-number">N/A</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Invoice Date:</span>
+                        <span class="detail-value" id="invoice-date">N/A</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">State:</span>
+                        <span class="detail-value">Gujarat</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">State Code:</span>
+                        <span class="detail-value">24</span>
+                    </div>
+                </div>
+                <div class="detail-section">
+                    <h3>Transport & Order Details</h3>
+                    <div class="detail-row">
+                        <span class="detail-label">Transport:</span>
+                        <span class="detail-value" id="transport">N/A</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Ord No.:</span>
+                        <span class="detail-value" id="order-number">Telephonic</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Lr. No.:</span>
+                        <span class="detail-value" id="lr-number">---</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Lr. Date:</span>
+                        <span class="detail-value" id="lr-date">N/A</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Party Details Section -->
+        <div class="party-details">
+            <div class="party-grid">
+                <div class="party-section">
+                    <h3>Details of Receiver (Billed to)</h3>
+                    <div class="party-name" id="receiver-name">N/A</div>
+                    <div class="party-address" id="receiver-address">N/A</div>
+                    <div class="party-contact" id="receiver-contact">N/A</div>
+                    <div class="party-details-row">
+                        <span class="detail-label">State:</span>
+                        <span class="detail-value" id="receiver-state">N/A</span>
+                    </div>
+                    <div class="party-details-row">
+                        <span class="detail-label">State Code:</span>
+                        <span class="detail-value" id="receiver-state-code">N/A</span>
+                    </div>
+                    <div class="party-details-row">
+                        <span class="detail-label">GSTIN No.:</span>
+                        <span class="detail-value" id="receiver-gst">N/A</span>
+                    </div>
+                    <div class="party-details-row">
+                        <span class="detail-label">PAN No.:</span>
+                        <span class="detail-value" id="receiver-pan">N/A</span>
+                    </div>
+                </div>
+                <div class="party-section">
+                    <h3>Details of Consignee (Shipped to)</h3>
+                    <div class="party-name" id="consignee-name">N/A</div>
+                    <div class="party-address" id="consignee-address">N/A</div>
+                    <div class="party-contact" id="consignee-contact">N/A</div>
+                    <div class="party-details-row">
+                        <span class="detail-label">State:</span>
+                        <span class="detail-value" id="consignee-state">N/A</span>
+                    </div>
+                    <div class="party-details-row">
+                        <span class="detail-label">State Code:</span>
+                        <span class="detail-value" id="consignee-state-code">N/A</span>
+                    </div>
+                    <div class="party-details-row">
+                        <span class="detail-label">GSTIN No.:</span>
+                        <span class="detail-value" id="consignee-gst">N/A</span>
+                    </div>
+                    <div class="party-details-row">
+                        <span class="detail-label">PAN No.:</span>
+                        <span class="detail-value" id="consignee-pan">N/A</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Products Section -->
+        <div class="products-section">
+            <table class="products-table">
+                <thead>
+                    <tr>
+                        <th>Sr.</th>
+                        <th>Description of Goods</th>
+                        <th>HSN/SAC</th>
+                        <th>Box</th>
+                        <th>Quantity</th>
+                        <th>Rate/Pc</th>
+                        <th>Discount</th>
+                        <th>Amount</th>
+                    </tr>
+                </thead>
+                <tbody id="products-tbody">
+                    <!-- Products will be populated here -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Totals Section with Bank Details -->
+        <div class="totals-section">
+            <div class="bank-details">
+                <h3>Bank Details</h3>
+                <div class="bank-row">
+                    <span class="bank-label">Firm Name:</span>
+                    <span class="bank-value">Anant Polymers</span>
+                </div>
+                <div class="bank-row">
+                    <span class="bank-label">Bank Name:</span>
+                    <span class="bank-value">H.D.F.C Bank</span>
+                </div>
+                <div class="bank-row">
+                    <span class="bank-label">A/c No.:</span>
+                    <span class="bank-value">09587610000015</span>
+                </div>
+                <div class="bank-row">
+                    <span class="bank-label">NEFT/IFS Code:</span>
+                    <span class="bank-value">HDFC0000958</span>
+                </div>
+                <div class="bank-row">
+                    <span class="bank-label">Branch:</span>
+                    <span class="bank-value">Naroda, Ahmedabad</span>
+                </div>
+            </div>
+            
+            <div class="summary-section">
+                <div class="summary-row">
+                    <span class="summary-label">Sub Total:</span>
+                    <span class="summary-value" id="total-boxes">0</span>
+                    <span class="summary-value" id="total-quantity">0</span>
+                    <span class="summary-value" id="subtotal-amount">₹0.00</span>
+                </div>
+                <div class="summary-row">
+                    <span class="summary-label">IGST 18.00%:</span>
+                    <span class="summary-value"></span>
+                    <span class="summary-value" id="igst-amount">₹0.00</span>
+                </div>
+                <div class="summary-row">
+                    <span class="summary-label">Round Off:</span>
+                    <span class="summary-value"></span>
+                    <span class="summary-value" id="round-off">₹0.00</span>
+                </div>
+                <div class="summary-row">
+                    <span class="summary-label">Invoice Total:</span>
+                    <span class="summary-value"></span>
+                    <span class="summary-value invoice-total" id="final-amount">₹0.00</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Amount in Words -->
+        <div class="amount-in-words">
+            Amount in Words: <span id="amount-in-words">Zero Rupees Only</span>
+        </div>
+
+        <!-- Balance Information -->
+        <div class="balance-section">
+            <div class="balance-grid">
+                <div class="balance-item">
+                    <div class="balance-label">Last Balance</div>
+                    <div class="balance-value" id="last-balance">₹0.00</div>
+                </div>
+                <div class="balance-item">
+                    <div class="balance-label">Current Amt</div>
+                    <div class="balance-value" id="current-amount">₹0.00</div>
+                </div>
+                <div class="balance-item">
+                    <div class="balance-label">Net Balance</div>
+                    <div class="balance-value" id="net-balance">₹0.00</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer Section -->
+        <div class="footer">
+            <div class="terms-section">
+                <div class="terms-title">Terms & Conditions:</div>
+                <ul class="terms-list">
+                    <li>Subject to AHMEDABAD jurisdiction.</li>
+                    <li>Our risk and responsibility when the goods are delivered to the carrier.</li>
+                    <li>Organization is not responsible for the transportation damages and transportation cost.</li>
+                    <li>Organization is responsible for leakages, pipe internal dimension and thread dimension.</li>
+                    <li>Organization reserves the right to cancle the order in that case we will inform you the genuine reason.</li>
+                    <li>E. & O. E.</li>
+                </ul>
+            </div>
+            
+            <div class="signature-section">
+                <div class="signature-left">
+                    <div class="signature-line"></div>
+                    <div class="signature-text">For, ANANT POLYMERS</div>
+                    <div class="signature-text">Authorised Signatory</div>
+                </div>
+                <div class="signature-right">
+                    <div class="certification-text">Certified that the particulars given above are true and correct</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Function to automatically adjust layout based on content length
+        function adjustLayoutForSinglePage() {
+            const container = document.getElementById('invoice-container');
+            const productsTable = document.querySelector('#products-tbody');
+            
+            if (!productsTable) return;
+            
+            const productRows = productsTable.querySelectorAll('tr');
+            const totalProducts = productRows.length;
+            
+            // Remove any existing compact classes
+            container.classList.remove('compact-mode', 'ultra-compact-mode');
+            
+            // Apply compact mode based on number of products
+            if (totalProducts > 8) {
+                container.classList.add('ultra-compact-mode');
+            } else if (totalProducts > 5) {
+                container.classList.add('compact-mode');
+            }
+            
+            // Additional adjustments for very long content
+            if (totalProducts > 12) {
+                // Make table even more compact
+                const table = document.querySelector('.products-table');
+                if (table) {
+                    table.style.fontSize = '6px';
+                }
+                
+                // Reduce padding further
+                const allSections = container.querySelectorAll('.header, .invoice-details, .party-details, .products-section, .totals-section, .amount-in-words, .balance-section, .footer');
+                allSections.forEach(section => {
+                    section.style.padding = '3px';
+                });
+            }
+        }
+        
+        // Call the function when the page loads
+        document.addEventListener('DOMContentLoaded', adjustLayoutForSinglePage);
+        
+        // Also call it after products are populated
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'childList' && mutation.target.id === 'products-tbody') {
+                    setTimeout(adjustLayoutForSinglePage, 100);
+                }
+            });
+        });
+        
+        // Start observing
+        if (document.getElementById('products-tbody')) {
+            observer.observe(document.getElementById('products-tbody'), { childList: true });
+        }
+    </script>
+</body>
+</html>

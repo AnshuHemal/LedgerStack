@@ -186,7 +186,7 @@ const AccountsOverview = () => {
 
   return (
     <>
-      <div className="child__container d-flex justify-content-between align-items-start">
+      <div className="child__container d-flex justify-content-between align-items-start accounts-fade-in">
         <div className="ms-lg-2">
           <h5
             className="display-6"
@@ -213,7 +213,7 @@ const AccountsOverview = () => {
       </div>
 
       {/* Navigation Tabs */}
-      <div className="nav-tabs d-flex gap-3">
+      <div className="nav-tabs d-flex gap-3 accounts-fade-in">
         <button
           className={`nav-tab ${selectedTab === "accounts" ? "active" : ""}`}
           onClick={() => handleTabClick("accounts")}
@@ -240,7 +240,7 @@ const AccountsOverview = () => {
         aria-labelledby="exampleModalLabel"
         aria-hidden="true"
       >
-        <div className="modal-dialog">
+        <div className="modal-dialog modal-animate">
           <div className="modal-content">
             <div className="modal-header">
               <h5 className="modal-title" id="exampleModalLabel">
@@ -307,7 +307,7 @@ const AccountsOverview = () => {
         aria-labelledby="exampleModalLabel"
         aria-hidden="true"
       >
-        <div className="modal-dialog modal-lg">
+        <div className="modal-dialog modal-lg modal-animate">
           <div className="modal-content">
             <div className="modal-header">
               <h5 className="modal-title" id="exampleModalLabel">
@@ -645,6 +645,35 @@ const AccountsOverview = () => {
           </div>
         </div>
       </div>
+      {/* Animation Styles */}
+      <style>{`
+        .accounts-fade-in {
+          animation: fadeInUp 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+        @keyframes fadeInUp {
+          0% {
+            opacity: 0;
+            transform: translateY(32px);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .modal-animate {
+          animation: modalPopIn 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+        @keyframes modalPopIn {
+          0% {
+            opacity: 0;
+            transform: scale(0.95) translateY(32px);
+          }
+          100% {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+          }
+        }
+      `}</style>
     </>
   );
 };

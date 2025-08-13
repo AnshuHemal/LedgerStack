@@ -1,6 +1,7 @@
 import axios from "axios";
 import React, { useEffect, useState } from "react";
 import toast from "react-hot-toast";
+import { generateInvoicePDF } from "../../utils/generateInvoicePDF";
 
 const SalesInvoicesDisplay = () => {
   const [invoices, setInvoices] = useState([]);
@@ -168,6 +169,8 @@ const SalesInvoicesDisplay = () => {
   };
 
   const handleEdit = async (e) => {
+    if (e) e.preventDefault();
+    
     formData.freight_amount = parseFloat(formData.freight_amount);
     formData.bill_no.no = parseInt(formData.bill_no.no);
     let final_amount = 0;
@@ -209,7 +212,7 @@ const SalesInvoicesDisplay = () => {
       formData.bill_no.bill_prefix + "" + formData.bill_no.no;
     formData.trans_date = new Date(formData.trans_date).toLocaleDateString();
     formData.bill_date = new Date(formData.bill_date).toLocaleDateString();
-    e.preventDefault();
+    
     try {
       await axios.put(`${API_URL}/sales-invoice/${selectedInvoiceId}`, {
         salesInvoiceDetails: formData,
@@ -217,9 +220,11 @@ const SalesInvoicesDisplay = () => {
       toast.success("Invoice updated!");
       fetchInvoices();
       setShowModal(false);
+      return true; // Return success status
     } catch (err) {
       console.error(err);
       toast.error("Failed to update invoice" + err.message);
+      return false; // Return failure status
     }
   };
 
@@ -232,6 +237,43 @@ const SalesInvoicesDisplay = () => {
     } catch (err) {
       console.error(err);
       toast.error("Failed to delete invoice");
+    }
+  };
+
+  const handleSaveAndPrint = async () => {
+    try {
+      // First save the invoice
+      const saveSuccess = await handleEdit();
+      
+      // Then generate and download the PDF only if save was successful
+      if (saveSuccess && formData) {
+        try {
+          // Prepare data for PDF generation with full product details
+          const pdfData = {
+            ...formData,
+            products: formData.products.map(product => {
+              if (product.product && typeof product.product === 'string') {
+                // Find the full product object from the products array
+                const fullProduct = products.find(p => p._id === product.product);
+                return {
+                  ...product,
+                  product: fullProduct || product.product
+                };
+              }
+              return product;
+            })
+          };
+          
+          generateInvoicePDF(pdfData);
+          toast.success("Invoice saved and PDF generated successfully!");
+        } catch (error) {
+          console.error('Error generating PDF:', error);
+          toast.error("Invoice saved but PDF generation failed");
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to save invoice or generate PDF");
     }
   };
 
@@ -850,6 +892,35 @@ const SalesInvoicesDisplay = () => {
                 </button>
                 <button
                   type="button"
+                  className="post-button"
+                  onClick={() => {
+                    try {
+                      // Generate PDF without saving
+                      const pdfData = {
+                        ...formData,
+                        products: formData.products.map(product => {
+                          if (product.product && typeof product.product === 'string') {
+                            const fullProduct = products.find(p => p._id === product.product);
+                            return {
+                              ...product,
+                              product: fullProduct || product.product
+                            };
+                          }
+                          return product;
+                        })
+                      };
+                      generateInvoicePDF(pdfData);
+                      toast.success("PDF generated successfully!");
+                    } catch (error) {
+                      console.error('Error generating PDF:', error);
+                      toast.error("Failed to generate PDF");
+                    }
+                  }}
+                >
+                  Generate PDF
+                </button>
+                <button
+                  type="button"
                   className="login-button"
                   onClick={handleEdit}
                 >
@@ -858,7 +929,7 @@ const SalesInvoicesDisplay = () => {
                 <button
                   type="button"
                   className="login-button"
-                  onClick={handleEdit}
+                  onClick={handleSaveAndPrint}
                 >
                   Save & Print
                 </button>
