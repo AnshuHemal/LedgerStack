@@ -118,7 +118,6 @@ const ProformaInvoiceOverview = () => {
         `${INCOME_EXPENSES_URL}/proforma-bill`
       );
       const currentBillNo = proformaBillRes.data.data.no;
-      console.log(currentBillNo);
       setForm((prev) => ({
         ...prev,
         bill_no: { ...prev.bill_no, no: parseInt(currentBillNo) },

@@ -10,6 +10,7 @@ import {
   deleteProductType,
   getProduct,
   getProductById,
+  getProductsByGroup,
   getProductCategory,
   getProductCategoryById,
   getProductGroup,
@@ -68,6 +69,7 @@ router.delete("/product-category/:id", deleteProductCategory);
 // Product
 router.post("/", protect, addProduct);
 router.get("/", protect, getProduct);
+router.get("/group/:groupId", protect, getProductsByGroup);
 router.get("/:id", protect, getProductById);
 router.put("/:id", protect, updateProduct);
 router.delete("/:id", protect, deleteProduct);

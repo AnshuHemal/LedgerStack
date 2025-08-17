@@ -16,8 +16,6 @@ export const getQuickEntries = async (req, res) => {
 
 export const addQuickEntries = async (req, res) => {
   try {
-    console.log("Incoming request body:", req.body);
-    console.log("User:", req.user);
 
     const {
       entryType,

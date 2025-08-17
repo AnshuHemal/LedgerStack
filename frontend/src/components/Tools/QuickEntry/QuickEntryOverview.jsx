@@ -99,7 +99,6 @@ const QuickEntryOverview = () => {
     }
 
     setAdding(true);
-    console.log(form);
     try {
       await axios.post(`${API_URL}/add`, {
         ...form,

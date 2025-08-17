@@ -8,7 +8,9 @@ import accountRoutes from "./routes/account.route.js";
 import productRoutes from "./routes/product.route.js";
 import incomeExpensesRoutes from "./routes/income_expenses.route.js";
 import quickEntryRoutes from "./routes/quickentry.route.js";
-import inventoryRoutes from "./routes/inventory.route.js";
+import ordersRoutes from "./routes/orders.route.js";
+import skuRoutes from "./routes/sku.route.js";
+import subpartRoutes from "./routes/subpart.route.js";
 
 import PDFDocument from "pdfkit";
 import fs from "fs";
@@ -47,7 +49,9 @@ app.use("/api/account", accountRoutes);
 app.use("/api/product", productRoutes);
 app.use("/api/income-expenses", incomeExpensesRoutes);
 app.use("/api/quick-entry", quickEntryRoutes);
-app.use("/api/inventory", inventoryRoutes);
+app.use("/api/orders", ordersRoutes);
+app.use("/api/warehouse", skuRoutes);
+app.use("/api/subparts", subpartRoutes);
 
 app.post("/generate-pdf", (req, res) => {
   const { header, content, footer } = req.body;

@@ -290,6 +290,29 @@ export const getProduct = async (req, res) => {
   }
 };
 
+// Get Products by Group
+export const getProductsByGroup = async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    
+    if (!groupId) {
+      return res.status(400).json({ message: "Group ID is required" });
+    }
+
+    const products = await Product.find({ 
+      createdBy: req.user.userId,
+      productGroupId: groupId 
+    })
+      .populate("productGroupId", "name")
+      .populate("categoryId", "name")
+      .populate("productTypeId", "name");
+
+    res.status(200).json(products);
+  } catch (err) {
+    res.status(500).json({ message: "Failed to fetch products by group", error: err });
+  }
+};
+
 // Get Product by ID
 export const getProductById = async (req, res) => {
   const groupId = req.params.id;

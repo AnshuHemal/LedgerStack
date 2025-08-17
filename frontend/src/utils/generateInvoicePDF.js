@@ -1,7 +1,6 @@
 import html2pdf from 'html2pdf.js';
 
 export const generateInvoicePDF = async (invoiceData) => {
-  console.log('Generating PDF for invoice:', invoiceData);
   
   // Validate input data
   if (!invoiceData) {
@@ -25,7 +24,6 @@ export const generateInvoicePDF = async (invoiceData) => {
         throw new Error('Template not found');
       }
     } catch (fetchError) {
-      console.log('Using fallback template:', fetchError.message);
       htmlTemplate = await getTemplateFromAssets();
     }
 
@@ -59,9 +57,7 @@ export const generateInvoicePDF = async (invoiceData) => {
 
     // Generate and download PDF
     await html2pdf().from(container).set(pdfOptions).save();
-    
-    console.log('PDF generated successfully');
-    
+        
   } catch (error) {
     console.error('Error generating PDF:', error);
     throw new Error('Failed to generate PDF');

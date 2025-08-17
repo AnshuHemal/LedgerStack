@@ -436,7 +436,6 @@ const IncomeExpensesOverview = () => {
       purchaseFormData.bill_date
     ).toLocaleDateString();
     e.preventDefault();
-    console.log(purchaseFormData);
     try {
       const res = await axios.post(
         `${INCOME_EXPENSES_URL}/purchase-invoice`,
