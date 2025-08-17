@@ -12,13 +12,13 @@ const WarehouseOverview = () => {
   const [showModal, setShowModal] = useState(false);
   const [skuFormData, setSkuFormData] = useState({
     group: "",
-    product: "",
-    subparts: [],
     location: "",
-    quantity: 0,
     unit: "pieces",
     customUnit: "",
   });
+  
+  const [selectedProducts, setSelectedProducts] = useState([]);
+  const [productSubparts, setProductSubparts] = useState({});
 
   const PRODUCT_URL = "http://localhost:5000/api/product";
   const SUBPARTS_URL = "http://localhost:5000/api/subparts";
@@ -86,19 +86,80 @@ const WarehouseOverview = () => {
       const response = await axios.get(`${SUBPARTS_URL}/product/${productId}`, {
         withCredentials: true,
       });
-      setSubparts(response.data || []);
+      // Initialize subparts and their parts with selected: false
+      const subpartsWithSelection = (response.data || []).map(subpart => ({
+        ...subpart,
+        parts: (subpart.parts || []).map(part => ({
+          ...part,
+          selected: false,
+          quantity: 0
+        }))
+      }));
+      setProductSubparts(prev => ({
+        ...prev,
+        [productId]: subpartsWithSelection
+      }));
     } catch (error) {
       console.error("Failed to fetch subparts by product:", error);
       toast.error("Failed to fetch subparts by product");
     }
   };
 
-  const handleSubpartChange = (subpartId, isChecked) => {
-    setSkuFormData((prev) => ({
+  const handleProductSelection = (productId, isChecked) => {
+    if (isChecked) {
+      // Add product to selected products
+      setSelectedProducts(prev => [...prev, productId]);
+      // Fetch subparts for this product if not already fetched
+      if (!productSubparts[productId]) {
+        fetchSubpartsByProduct(productId);
+      }
+    } else {
+      // Remove product from selected products
+      setSelectedProducts(prev => prev.filter(id => id !== productId));
+      // Remove subparts for this product
+      setProductSubparts(prev => {
+        const newState = { ...prev };
+        delete newState[productId];
+        return newState;
+      });
+    }
+  };
+
+
+
+  const handlePartQuantityChange = (productId, subpartId, partIndex, quantity) => {
+    setProductSubparts(prev => ({
       ...prev,
-      subparts: isChecked
-        ? [...prev.subparts, subpartId]
-        : prev.subparts.filter((id) => id !== subpartId),
+      [productId]: prev[productId].map(subpart => 
+        subpart._id === subpartId 
+          ? {
+              ...subpart,
+              parts: subpart.parts.map((part, index) => 
+                index === partIndex 
+                  ? { ...part, quantity: parseInt(quantity) || 0 }
+                  : part
+              )
+            }
+          : subpart
+      )
+    }));
+  };
+
+  const handlePartChange = (productId, subpartId, partIndex, isChecked) => {
+    setProductSubparts(prev => ({
+      ...prev,
+      [productId]: prev[productId].map(subpart => 
+        subpart._id === subpartId 
+          ? {
+              ...subpart,
+              parts: subpart.parts.map((part, index) => 
+                index === partIndex 
+                  ? { ...part, selected: isChecked }
+                  : part
+              )
+            }
+          : subpart
+      )
     }));
   };
 
@@ -113,38 +174,13 @@ const WarehouseOverview = () => {
     if (name === "group") {
       if (value) {
         fetchProductsByGroup(value);
-        // Clear product and subparts when group changes
-        setSkuFormData((prev) => ({
-          ...prev,
-          product: "",
-          subparts: [],
-        }));
-        setSubparts([]);
+        // Clear selected products when group changes
+        setSelectedProducts([]);
+        setProductSubparts({});
       } else {
         setFilteredProducts([]);
-        setSkuFormData((prev) => ({
-          ...prev,
-          product: "",
-          subparts: [],
-        }));
-        setSubparts([]);
-      }
-    }
-
-    if (name === "product") {
-      if (value) {
-        fetchSubpartsByProduct(value);
-        // Clear subparts when product changes
-        setSkuFormData((prev) => ({
-          ...prev,
-          subparts: [],
-        }));
-      } else {
-        setSubparts([]);
-        setSkuFormData((prev) => ({
-          ...prev,
-          subparts: [],
-        }));
+        setSelectedProducts([]);
+        setProductSubparts({});
       }
     }
 
@@ -161,20 +197,25 @@ const WarehouseOverview = () => {
     e.preventDefault();
 
     // Validate form
-    if (!skuFormData.group || !skuFormData.product || !skuFormData.location) {
+    if (!skuFormData.group || !skuFormData.location) {
       toast.error("Please fill all required fields");
       return;
     }
 
-    // Check if subparts exist for the selected product
-    if (subparts.length === 0) {
-      toast.error("Please add subparts for this product first");
+    // Check if at least one product is selected
+    if (selectedProducts.length === 0) {
+      toast.error("Please select at least one product");
       return;
     }
 
-    // Check if at least one subpart is selected
-    if (skuFormData.subparts.length === 0) {
-      toast.error("Please select at least one subpart");
+    // Check if at least one part is selected with quantity across all subparts
+    const selectedParts = Object.values(productSubparts)
+      .flat()
+      .flatMap(subpart => subpart.parts || [])
+      .filter(part => part.selected && part.quantity > 0);
+    
+    if (selectedParts.length === 0) {
+      toast.error("Please select at least one part with quantity");
       return;
     }
 
@@ -184,9 +225,27 @@ const WarehouseOverview = () => {
       return;
     }
 
+    // Prepare data for submission
+    const submissionData = {
+      ...skuFormData,
+      products: selectedProducts.map(productId => ({
+        productId,
+        parts: productSubparts[productId]
+          ?.flatMap(subpart => (subpart.parts || [])
+            .filter(part => part.selected && part.quantity > 0)
+            .map(part => ({
+              subpartId: subpart._id,
+              partName: part.partName,
+              quantity: part.quantity,
+              color: part.color
+            }))
+          ) || []
+      })).filter(product => product.parts.length > 0)
+    };
+
     try {
       setLoading(true);
-      await axios.post(`${WAREHOUSE_URL}`, skuFormData, {
+      await axios.post(`${WAREHOUSE_URL}`, submissionData, {
         withCredentials: true,
       });
 
@@ -205,15 +264,13 @@ const WarehouseOverview = () => {
   const resetForm = () => {
     setSkuFormData({
       group: "",
-      product: "",
-      subparts: [],
       location: "",
-      quantity: 0,
       unit: "pieces",
       customUnit: "",
     });
+    setSelectedProducts([]);
+    setProductSubparts({});
     setFilteredProducts([]);
-    setSubparts([]);
   };
 
   const handleDeleteSku = async (skuId) => {
@@ -293,32 +350,51 @@ const WarehouseOverview = () => {
                 <tr key={sku._id} style={{ borderBottom: '1px solid #e9ecef' }}>
                   <td style={{ padding: '12px', verticalAlign: 'top', fontWeight: '500', color: '#121212' }}>{sku.skuCode}</td>
                   <td style={{ padding: '12px', verticalAlign: 'top' }}>{sku.group?.name || "N/A"}</td>
-                  <td style={{ padding: '12px', verticalAlign: 'top' }}>{sku.product?.name || "N/A"}</td>
+                  <td style={{ padding: '12px', verticalAlign: 'top' }}>
+                    <div style={{ maxWidth: '200px' }}>
+                      {sku.products && sku.products.length > 0 ? (
+                        sku.products.map((product, index) => (
+                          <div key={index} style={{
+                            padding: '4px 8px',
+                            marginBottom: index < sku.products.length - 1 ? '4px' : '0',
+                            backgroundColor: '#f8f9fa',
+                            borderRadius: '4px',
+                            fontSize: '0.85em',
+                            fontWeight: '500'
+                          }}>
+                            {product.productId?.name || "N/A"}
+                          </div>
+                        ))
+                      ) : (
+                        <span style={{ color: '#6c757d' }}>No products</span>
+                      )}
+                    </div>
+                  </td>
                   <td style={{ padding: '12px', verticalAlign: 'top' }}>
                     <div style={{ maxWidth: '300px' }}>
-                      {sku.subparts && sku.subparts.length > 0 ? (
-                        sku.subparts.map((subpart, index) => (
-                          <div key={index} style={{
-                            padding: '8px',
-                            marginBottom: index < sku.subparts.length - 1 ? '4px' : '0',
+                      {sku.products && sku.products.length > 0 ? (
+                        sku.products.map((product, productIndex) => (
+                          <div key={productIndex} style={{
+                            padding: '6px',
+                            marginBottom: productIndex < sku.products.length - 1 ? '6px' : '0',
                             backgroundColor: 'white',
                             borderRadius: '4px',
                             border: '1px solid #e9ecef',
                             fontSize: '0.85em'
                           }}>
-                            {subpart.parts && subpart.parts.length > 0 ? (
-                              subpart.parts.map((part, partIndex) => (
-                                <div key={partIndex} style={{ marginBottom: partIndex < subpart.parts.length - 1 ? '2px' : '0' }}>
+                            {product.parts && product.parts.length > 0 ? (
+                              product.parts.map((part, partIndex) => (
+                                <div key={partIndex} style={{ marginBottom: partIndex < product.parts.length - 1 ? '2px' : '0' }}>
                                   {part.partName} ({part.quantity} {part.color})
                                 </div>
                               ))
                             ) : (
-                              <span style={{ color: '#6c757d' }}>No parts defined</span>
+                              <span style={{ color: '#6c757d' }}>No parts</span>
                             )}
                           </div>
                         ))
                       ) : (
-                        <span style={{ color: '#6c757d' }}>No subparts</span>
+                        <span style={{ color: '#6c757d' }}>No parts</span>
                       )}
                     </div>
                   </td>
@@ -329,12 +405,6 @@ const WarehouseOverview = () => {
                       alignItems: 'center', 
                       gap: '8px'
                     }}>
-                      <span style={{ 
-                        fontWeight: '500', 
-                        color: '#28a745'
-                      }}>
-                        {sku.quantity}
-                      </span>
                       <span style={{ fontSize: '0.85em', color: '#6c757d' }}>
                         {sku.unit === 'other' ? sku.customUnit : sku.unit}
                       </span>
@@ -400,61 +470,121 @@ const WarehouseOverview = () => {
                       ))}
                     </select>
                   </div>
-                  <div className="col-md-6">
-                    <label htmlFor="product" className="form-label">
-                      Product *
-                    </label>
-                    <select
-                      className="form-control"
-                      id="product"
-                      name="product"
-                      value={skuFormData.product}
-                      onChange={handleInputChange}
-                      required
-                      disabled={!skuFormData.group}
-                    >
-                      <option value="">{skuFormData.group ? "Select Product" : "Select Group First"}</option>
-                      {filteredProducts.map((product) => (
-                        <option key={product._id} value={product._id}>
-                          {product.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
                 </div>
 
                 <div className="row mt-3">
                   <div className="col-md-12">
                     <label className="form-label">
-                      Subparts *
+                      Products & Subparts *
                     </label>
-                    {skuFormData.product ? (
-                      subparts.length > 0 ? (
+                    {skuFormData.group ? (
+                      filteredProducts.length > 0 ? (
                         <div style={{
-                          maxHeight: '200px',
+                          maxHeight: '400px',
                           overflowY: 'auto',
                           border: '1px solid #ced4da',
                           borderRadius: '4px',
-                          padding: '10px'
+                          padding: '15px'
                         }}>
-                          {subparts.map((subpart) => (
-                            <div key={subpart._id} style={{ marginBottom: '10px' }}>
-                              <label style={{ display: 'flex', alignItems: 'center', marginBottom: '5px' }}>
-                                <input
-                                  type="checkbox"
-                                  checked={skuFormData.subparts.includes(subpart._id)}
-                                  onChange={(e) => handleSubpartChange(subpart._id, e.target.checked)}
-                                  style={{ marginRight: '8px' }}
-                                />
-                                <span style={{ fontWeight: '500' }}>Subpart #{subpart._id.slice(-6)}</span>
-                              </label>
-                              {subpart.parts && subpart.parts.length > 0 && (
-                                <div style={{ marginLeft: '20px', fontSize: '0.9em', color: '#666' }}>
-                                  {subpart.parts.map((part, index) => (
-                                    <div key={index}>
-                                      • {part.partName} ({part.quantity} {part.color})
+                          {filteredProducts.map((product) => (
+                            <div key={product._id} style={{ 
+                              marginBottom: '20px',
+                              padding: '15px',
+                              border: '1px solid #e9ecef',
+                              borderRadius: '8px',
+                              backgroundColor: selectedProducts.includes(product._id) ? '#f8f9fa' : '#fff'
+                            }}>
+                              <div style={{ marginBottom: '10px' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedProducts.includes(product._id)}
+                                    onChange={(e) => handleProductSelection(product._id, e.target.checked)}
+                                    style={{ marginRight: '8px' }}
+                                  />
+                                  <span style={{ fontWeight: '600', fontSize: '1.1em' }}>{product.name}</span>
+                                </label>
+                              </div>
+                              
+                              {selectedProducts.includes(product._id) && (
+                                <div style={{ marginLeft: '20px' }}>
+                                  {productSubparts[product._id] ? (
+                                    productSubparts[product._id].length > 0 ? (
+                                      <div>
+                                        <label style={{ fontWeight: '500', marginBottom: '8px', display: 'block' }}>
+                                          Select Subparts:
+                                        </label>
+                                        {productSubparts[product._id].map((subpart) => (
+                                          <div key={subpart._id} style={{ marginBottom: '8px' }}>
+                                            <div style={{ marginBottom: '5px' }}>
+                                              <span style={{ fontWeight: '500' }}>Subpart #{subpart._id.slice(-6)}</span>
+                                            </div>
+                                            {subpart.parts && subpart.parts.length > 0 && (
+                                              <div style={{ marginLeft: '20px', fontSize: '0.9em', color: '#666' }}>
+                                                {subpart.parts.map((part, index) => (
+                                                  <div key={index} style={{ marginBottom: '4px' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                      <label style={{ display: 'flex', alignItems: 'center', marginBottom: '0' }}>
+                                                        <input
+                                                          type="checkbox"
+                                                          checked={part.selected || false}
+                                                          onChange={(e) => handlePartChange(product._id, subpart._id, index, e.target.checked)}
+                                                          style={{ marginRight: '6px' }}
+                                                        />
+                                                        <span>
+                                                          {part.partName} ({part.color})
+                                                        </span>
+                                                      </label>
+                                                      {part.selected && (
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                          <label style={{ fontSize: '0.85em', marginBottom: '0' }}>
+                                                            Qty:
+                                                          </label>
+                                                          <input
+                                                            type="number"
+                                                            min="1"
+                                                            value={part.quantity || 1}
+                                                            onChange={(e) => handlePartQuantityChange(product._id, subpart._id, index, e.target.value)}
+                                                            style={{
+                                                              width: '50px',
+                                                              padding: '2px 4px',
+                                                              border: '1px solid #ced4da',
+                                                              borderRadius: '3px',
+                                                              fontSize: '0.85em'
+                                                            }}
+                                                          />
+                                                        </div>
+                                                      )}
+                                                    </div>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            )}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <div style={{
+                                        padding: '10px',
+                                        backgroundColor: '#fff3cd',
+                                        border: '1px solid #ffeaa7',
+                                        borderRadius: '4px',
+                                        color: '#856404'
+                                      }}>
+                                        No subparts available for this product
+                                      </div>
+                                    )
+                                  ) : (
+                                    <div style={{
+                                      padding: '10px',
+                                      backgroundColor: '#f8f9fa',
+                                      border: '1px solid #dee2e6',
+                                      borderRadius: '4px',
+                                      color: '#6c757d'
+                                    }}>
+                                      Loading subparts...
                                     </div>
-                                  ))}
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -468,7 +598,7 @@ const WarehouseOverview = () => {
                           borderRadius: '4px',
                           color: '#6c757d'
                         }}>
-                          Please add subparts for this product first
+                          No products available for this group
                         </div>
                       )
                     ) : (
@@ -479,7 +609,7 @@ const WarehouseOverview = () => {
                         borderRadius: '4px',
                         color: '#6c757d'
                       }}>
-                        Select a product to view available subparts
+                        Select a group to view available products
                       </div>
                     )}
                   </div>
@@ -501,20 +631,7 @@ const WarehouseOverview = () => {
                       placeholder="Enter unique location"
                     />
                   </div>
-                  <div className="col-md-4">
-                    <label htmlFor="quantity" className="form-label">
-                      Current Quantity
-                    </label>
-                    <input
-                      type="number"
-                      className="form-control"
-                      id="quantity"
-                      name="quantity"
-                      value={skuFormData.quantity}
-                      onChange={handleInputChange}
-                      min="0"
-                    />
-                  </div>
+
                   <div className="col-md-4">
                     <label htmlFor="unit" className="form-label">
                       Unit

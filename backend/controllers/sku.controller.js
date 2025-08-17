@@ -3,7 +3,7 @@ import Sku from "../models/sku.model.js";
 // Create SKU
 export const createSku = async (req, res) => {
   try {
-    const { location, group, product, subparts, quantity, unit, customUnit } = req.body;
+    const { location, group, products, unit, customUnit } = req.body;
 
     // Check if location already exists
     const existingSku = await Sku.findOne({ location });
@@ -16,9 +16,7 @@ export const createSku = async (req, res) => {
     const skuData = {
       location,
       group,
-      product,
-      subparts,
-      quantity,
+      products,
       unit,
       customUnit,
       createdBy: req.user.userId,
@@ -30,8 +28,8 @@ export const createSku = async (req, res) => {
     // Populate the references for response
     await newSku.populate([
       { path: "group", select: "name" },
-      { path: "product", select: "name" },
-      { path: "subparts", select: "parts" }
+      { path: "products.productId", select: "name" },
+      { path: "products.parts.subpartId", select: "parts" }
     ]);
 
     res.status(201).json({
@@ -53,14 +51,13 @@ export const getSkus = async (req, res) => {
     const createdBy = req.user.userId;
     const skus = await Sku.find({ createdBy })
       .populate("group", "name")
-      .populate("product", "name")
       .populate({
-        path: "subparts",
-        select: "parts",
-        populate: {
-          path: "parts",
-          select: "partName quantity color"
-        }
+        path: "products.productId",
+        select: "name"
+      })
+      .populate({
+        path: "products.parts.subpartId",
+        select: "parts"
       })
       .sort({ createdAt: -1 });
 

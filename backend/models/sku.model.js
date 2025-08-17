@@ -13,16 +13,35 @@ const SkuSchema = mongoose.Schema(
       ref: "ProductGroup",
       required: true,
     },
-    product: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Product",
-      required: true,
-    },
-    subparts: [
+    products: [
       {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Subpart",
-        required: true,
+        productId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Product",
+          required: true,
+        },
+        parts: [
+          {
+            subpartId: {
+              type: mongoose.Schema.Types.ObjectId,
+              ref: "Subpart",
+              required: true,
+            },
+            partName: {
+              type: String,
+              required: true,
+            },
+            quantity: {
+              type: Number,
+              required: true,
+              min: 1,
+            },
+            color: {
+              type: String,
+              required: true,
+            },
+          },
+        ],
       },
     ],
     location: {
@@ -30,12 +49,6 @@ const SkuSchema = mongoose.Schema(
       required: true,
       unique: true,
       trim: true,
-    },
-    quantity: {
-      type: Number,
-      required: true,
-      min: 0,
-      default: 0,
     },
     unit: {
       type: String,
