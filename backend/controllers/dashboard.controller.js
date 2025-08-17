@@ -1,4 +1,4 @@
-import { Product } from "../models/user.model.js";
+import { Product, AccountMaster } from "../models/user.model.js";
 import Order from "../models/order.model.js";
 import Sku from "../models/sku.model.js";
 import Subpart from "../models/subpart.model.js";
@@ -221,7 +221,11 @@ export const getTopProducts = async (req, res) => {
 export const getRecentOrders = async (req, res) => {
   try {
     const recentOrders = await Order.find()
-      .populate("company", "name")
+      .populate({
+        path: "company",
+        select: "companyName",
+        model: AccountMaster
+      })
       .populate("products.productId", "name")
       .sort({ createdAt: -1 })
       .limit(5);
@@ -238,4 +242,94 @@ export const getRecentOrders = async (req, res) => {
       error: error.message
     });
   }
-}; 
+};
+
+// Get products sales per month
+export const getProductsSalesPerMonth = async (req, res) => {
+  try {
+    const currentYear = new Date().getFullYear();
+    const startDate = new Date(currentYear, 0, 1); // January 1st of current year
+    const endDate = new Date(currentYear, 11, 31, 23, 59, 59); // December 31st of current year
+
+    const salesData = await Order.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: startDate, $lte: endDate },
+          status: { $in: ["confirmed", "in_production", "ready", "shipped", "delivered"] }
+        }
+      },
+      {
+        $unwind: "$products"
+      },
+      {
+        $lookup: {
+          from: "products",
+          localField: "products.productId",
+          foreignField: "_id",
+          as: "product"
+        }
+      },
+      {
+        $unwind: "$product"
+      },
+      {
+        $group: {
+          _id: {
+            month: { $month: "$createdAt" },
+            productId: "$products.productId",
+            productName: "$product.name"
+          },
+          totalQuantity: { $sum: "$products.quantity" },
+          totalOrders: { $sum: 1 }
+        }
+      },
+      {
+        $group: {
+          _id: "$_id.month",
+          products: {
+            $push: {
+              productId: "$_id.productId",
+              productName: "$_id.productName",
+              quantity: "$totalQuantity",
+              orders: "$totalOrders"
+            }
+          },
+          totalSales: { $sum: "$totalQuantity" }
+        }
+      },
+      {
+        $sort: { "_id": 1 }
+      }
+    ]);
+
+    // Fill in missing months with 0 data
+    const monthNames = [
+      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+    ];
+
+    const completeSalesData = monthNames.map((month, index) => {
+      const monthData = salesData.find(data => data._id === index + 1);
+      return {
+        month,
+        monthNumber: index + 1,
+        products: monthData ? monthData.products : [],
+        totalSales: monthData ? monthData.totalSales : 0
+      };
+    });
+
+
+
+    res.status(200).json({
+      success: true,
+      data: completeSalesData
+    });
+  } catch (error) {
+    console.error("Products sales per month error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching products sales per month",
+      error: error.message
+    });
+  }
+};

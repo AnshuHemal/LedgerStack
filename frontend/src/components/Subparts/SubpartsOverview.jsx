@@ -48,7 +48,22 @@ const SubpartsOverview = () => {
       setSubparts(response.data.data || []);
     } catch (error) {
       console.error("Failed to fetch subparts:", error);
-      toast.error("Failed to fetch subparts");
+      toast.error("Failed to fetch subparts data");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    try {
+      setLoading(true);
+      await Promise.all([
+        fetchSubparts(),
+        fetchProducts(),
+        fetchGroups()
+      ]);
+    } catch (error) {
+      console.error("Failed to refresh data:", error);
     } finally {
       setLoading(false);
     }
@@ -384,6 +399,9 @@ const SubpartsOverview = () => {
         </div>
 
         <div className="me-3 d-flex align-items-center gap-2">
+          <button className="login-button" onClick={handleRefresh} disabled={loading}>
+            <i className={`fas fa-sync-alt ${loading ? 'fa-spin' : ''}`}></i>
+          </button>
           <button className="login-button" onClick={() => setShowModal(true)}>
             + Create Subpart
           </button>
@@ -1048,6 +1066,23 @@ const SubpartsOverview = () => {
           </div>
         </div>
       </div>
+
+      {/* Animation Styles */}
+      <style>{`
+        .orders-fade-in {
+          animation: fadeInUp 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+        @keyframes fadeInUp {
+          0% {
+            opacity: 0;
+            transform: translateY(32px);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
     </>
   );
 };

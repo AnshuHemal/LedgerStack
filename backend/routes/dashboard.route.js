@@ -4,7 +4,8 @@ import {
   getOrdersStats,
   getProductsDistribution,
   getTopProducts,
-  getRecentOrders
+  getRecentOrders,
+  getProductsSalesPerMonth
 } from "../controllers/dashboard.controller.js";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
@@ -35,5 +36,6 @@ router.get("/orders-stats", protect, getOrdersStats);
 router.get("/products-distribution", protect, getProductsDistribution);
 router.get("/top-products", protect, getTopProducts);
 router.get("/recent-orders", protect, getRecentOrders);
+router.get("/products-sales-per-month", protect, getProductsSalesPerMonth);
 
 export default router; 

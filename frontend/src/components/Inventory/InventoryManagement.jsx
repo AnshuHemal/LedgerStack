@@ -1,7 +1,5 @@
 import React, { useState, useEffect, lazy, Suspense } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import axios from "axios";
-import { toast } from "react-hot-toast";
 import "./InventoryManagement.css";
 
 const InventoryManagement = () => {
@@ -10,31 +8,6 @@ const InventoryManagement = () => {
   
   // State management
   const [activeTab, setActiveTab] = useState("dashboard");
-  const [loading, setLoading] = useState(true);
-  const [initialLoading, setInitialLoading] = useState(true);
-
-  // Data states
-  const [categories, setCategories] = useState([]);
-  const [machines, setMachines] = useState([]);
-  const [subparts, setSubparts] = useState([]);
-  const [products, setProducts] = useState([]);
-  const [orders, setOrders] = useState([]);
-  const [inventoryStatus, setInventoryStatus] = useState(null);
-
-  // API base URL
-  const API_BASE = "/api/inventory";
-
-  // Fetch data functions
-  const fetchData = async (endpoint, setter) => {
-    try {
-      const response = await axios.get(`${API_BASE}${endpoint}`);
-      setter(response.data.data || []);
-    } catch (error) {
-      console.error(`Error fetching ${endpoint}:`, error);
-      toast.error(`Failed to fetch ${endpoint}`);
-      setter([]);
-    }
-  };
 
   // Handle tab changes
   const handleTabChange = (tabName) => {
@@ -43,21 +16,6 @@ const InventoryManagement = () => {
       navigate('/inventory/manage');
     } else {
       navigate(`/inventory/manage/${tabName}`);
-    }
-  };
-
-  // Fetch inventory status separately
-  const fetchInventoryStatus = async () => {
-    try {
-      setLoading(true);
-      const response = await axios.get(`${API_BASE}/status`);
-      setInventoryStatus(response.data.data || null);
-    } catch (error) {
-      console.error("Error fetching inventory status:", error);
-      toast.error("Failed to fetch inventory status");
-      setInventoryStatus(null);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -76,29 +34,6 @@ const InventoryManagement = () => {
       setActiveTab('dashboard');
     }
   }, [location.pathname, navigate]);
-
-  // Load all data on component mount
-  useEffect(() => {
-    const loadAllData = async () => {
-      try {
-        setInitialLoading(true);
-        await Promise.all([
-          fetchData("/categories", setCategories),
-          fetchData("/machines", setMachines),
-          fetchData("/subparts", setSubparts),
-          fetchData("/inventory-products", setProducts),
-          fetchData("/orders", setOrders),
-          fetchInventoryStatus(),
-        ]);
-      } catch (error) {
-        console.error("Error loading initial data:", error);
-      } finally {
-        setInitialLoading(false);
-      }
-    };
-
-    loadAllData();
-  }, []);
 
   // Render Dashboard
   const renderDashboard = () => {
@@ -301,33 +236,15 @@ const InventoryManagement = () => {
         {/* Content Section */}
         <div className="row">
           <div className="col-12">
-            {initialLoading ? (
-              <div className="text-center py-5">
-                <div className="spinner-border text-primary1" role="status">
-                  <span className="visually-hidden">Loading...</span>
-                </div>
-                <p className="mt-3 text-secondary1">
-                  Loading inventory system...
-                </p>
-              </div>
-            ) : loading ? (
-              <div className="text-center py-5">
-                <div className="spinner-border text-primary1" role="status">
-                  <span className="visually-hidden">Loading...</span>
-                </div>
-                <p className="mt-3 text-secondary1">Updating data...</p>
-              </div>
-            ) : (
-              <div className="tab-content">
-                {activeTab === "dashboard" && renderDashboard()}
-                {activeTab === "warehouse" && renderWarehouse()}
-                {activeTab === "products" && renderProducts()}
-                {activeTab === "subparts" && renderSubparts()}
-                {activeTab === "orders" && renderOrders()}
-                {activeTab === "machines" && renderMachines()}
-                {activeTab === "daily-logs" && renderDailyLogs()}
-              </div>
-            )}
+            <div className="tab-content">
+              {activeTab === "dashboard" && renderDashboard()}
+              {activeTab === "warehouse" && renderWarehouse()}
+              {activeTab === "products" && renderProducts()}
+              {activeTab === "subparts" && renderSubparts()}
+              {activeTab === "orders" && renderOrders()}
+              {activeTab === "machines" && renderMachines()}
+              {activeTab === "daily-logs" && renderDailyLogs()}
+            </div>
           </div>
         </div>
       </div>

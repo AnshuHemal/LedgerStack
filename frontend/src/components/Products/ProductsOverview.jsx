@@ -259,8 +259,7 @@ const ProductsOverview = () => {
 
         <div className="me-3 d-flex align-items-center gap-2">
           <button className="login-button" onClick={fetchProductsAvailability}>
-            <i className="fas fa-sync-alt me-2"></i>
-            Refresh
+            <i className="fas fa-sync-alt"></i>
           </button>
         </div>
       </div>
@@ -648,6 +647,23 @@ const ProductsOverview = () => {
           </tbody>
         </table>
       </div>
+
+      {/* Animation Styles */}
+      <style>{`
+        .orders-fade-in {
+          animation: fadeInUp 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+        @keyframes fadeInUp {
+          0% {
+            opacity: 0;
+            transform: translateY(32px);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
     </>
   );
 };

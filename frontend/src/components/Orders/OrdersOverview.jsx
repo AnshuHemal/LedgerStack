@@ -59,7 +59,23 @@ const OrdersOverview = () => {
       setOrders(response.data.data || []);
     } catch (error) {
       console.error("Failed to fetch orders:", error);
-      toast.error("Failed to fetch orders");
+      toast.error("Failed to fetch orders data");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    try {
+      setLoading(true);
+      await Promise.all([
+        fetchOrders(),
+        fetchCompanies(),
+        fetchProducts(),
+        fetchGroups()
+      ]);
+    } catch (error) {
+      console.error("Failed to refresh data:", error);
     } finally {
       setLoading(false);
     }
@@ -490,6 +506,9 @@ const OrdersOverview = () => {
         </div>
 
         <div className="me-3 d-flex align-items-center gap-2">
+          <button className="login-button" onClick={handleRefresh} disabled={loading}>
+            <i className={`fas fa-sync-alt ${loading ? 'fa-spin' : ''}`}></i>
+          </button>
           <button className="login-button" onClick={() => setShowModal(true)}>
             + Create Order
           </button>
@@ -909,7 +928,6 @@ const OrdersOverview = () => {
                                   marginTop: "2px",
                                 }}
                               >
-                                Group:{" "}
                                 {highlightText(
                                   product.productId?.productGroupId?.name ||
                                     "N/A",
@@ -988,7 +1006,7 @@ const OrdersOverview = () => {
                     </div>
                   </td>
                   <td style={{ padding: "12px", verticalAlign: "top" }}>
-                    <span className={`status-badge status-${order.status}`}>
+                    <span className={`status-badge status-${order.status}`} style={{fontWeight: "500"}}>
                       {order.status}
                     </span>
                   </td>
