@@ -88,7 +88,30 @@ const ProductsOverview = () => {
         (product.productTypeId?.name &&
           product.productTypeId.name
             .toLowerCase()
-            .includes(searchFilters.searchTerm.toLowerCase()));
+            .includes(searchFilters.searchTerm.toLowerCase())) ||
+        // Search in subparts
+        (product.subpartsRequired &&
+          product.subpartsRequired.some(
+            (part) =>
+              part.partName
+                .toLowerCase()
+                .includes(searchFilters.searchTerm.toLowerCase()) ||
+              part.color
+                .toLowerCase()
+                .includes(searchFilters.searchTerm.toLowerCase()) ||
+              part.quantityNeeded
+                .toString()
+                .includes(searchFilters.searchTerm) ||
+              part.availableInWarehouse
+                .toString()
+                .includes(searchFilters.searchTerm) ||
+              part.productsPossible
+                .toString()
+                .includes(searchFilters.searchTerm) ||
+              part.remainingQuantity
+                .toString()
+                .includes(searchFilters.searchTerm)
+          ));
 
       const matchesGroup =
         !searchFilters.groupFilter ||
@@ -144,7 +167,10 @@ const ProductsOverview = () => {
         product.productTypeId?.name || "",
         product.availableQuantity,
         product.subpartsRequired
-          ?.map((part) => `${part.partName} (${part.quantityNeeded}, ${part.remainingQuantity} remaining)`)
+          ?.map(
+            (part) =>
+              `${part.partName} (${part.quantityNeeded}, ${part.remainingQuantity} remaining)`
+          )
           .join(", ") || "None",
       ]),
     ]
@@ -531,11 +557,14 @@ const ProductsOverview = () => {
                             <span
                               style={{
                                 fontWeight: "600",
-                                color: "#4e73df",
+                                color: "#121212",
                                 marginBottom: "4px",
                               }}
                             >
-                              {part.partName}
+                              {highlightText(
+                                part.partName,
+                                searchFilters.searchTerm
+                              )}
                             </span>
                             <span
                               style={{
@@ -544,8 +573,17 @@ const ProductsOverview = () => {
                                 marginBottom: "4px",
                               }}
                             >
-                              ({part.quantityNeeded} needed,{" "}
-                              {part.availableInWarehouse} available)
+                              (
+                              {highlightText(
+                                part.quantityNeeded.toString(),
+                                searchFilters.searchTerm
+                              )}{" "}
+                              needed,{" "}
+                              {highlightText(
+                                part.availableInWarehouse.toString(),
+                                searchFilters.searchTerm
+                              )}{" "}
+                              available)
                             </span>
                             <div
                               style={{
@@ -571,7 +609,11 @@ const ProductsOverview = () => {
                                   alignSelf: "flex-start",
                                 }}
                               >
-                                {part.productsPossible} possible
+                                {highlightText(
+                                  part.productsPossible.toString(),
+                                  searchFilters.searchTerm
+                                )}{" "}
+                                possible
                               </span>
                               <span
                                 style={{
@@ -584,7 +626,11 @@ const ProductsOverview = () => {
                                   alignSelf: "flex-start",
                                 }}
                               >
-                                {part.remainingQuantity} remaining
+                                {highlightText(
+                                  part.remainingQuantity.toString(),
+                                  searchFilters.searchTerm
+                                )}{" "}
+                                remaining
                               </span>
                             </div>
                           </div>
