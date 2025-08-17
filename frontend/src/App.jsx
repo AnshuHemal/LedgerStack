@@ -77,6 +77,12 @@ const App = () => {
           <Route path="outstanding-payable" element={<OutstandingPayable />} />
           <Route path="outstanding-receivable" element={<OutstandingReceivable />} />
           <Route path="inventory/manage" element={<InventoryManagement />} />
+          <Route path="inventory/manage/warehouse" element={<InventoryManagement />} />
+          <Route path="inventory/manage/products" element={<InventoryManagement />} />
+          <Route path="inventory/manage/subparts" element={<InventoryManagement />} />
+          <Route path="inventory/manage/orders" element={<InventoryManagement />} />
+          <Route path="inventory/manage/machines" element={<InventoryManagement />} />
+          <Route path="inventory/manage/daily-logs" element={<InventoryManagement />} />
           <Route path="generate" element={<GenerateInvoice/>} />
         </Route>
       </Routes>

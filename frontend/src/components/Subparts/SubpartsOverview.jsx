@@ -92,52 +92,58 @@ const SubpartsOverview = () => {
   // Filter subparts based on search criteria
   const getFilteredSubparts = () => {
     return subparts.filter((subpart) => {
-      const { searchTerm, groupFilter, productFilter, partNameFilter } = searchFilters;
-      
+      const { searchTerm, groupFilter, productFilter, partNameFilter } =
+        searchFilters;
+
       // Search term filter (searches across all fields)
       if (searchTerm) {
         const searchLower = searchTerm.toLowerCase();
         const productName = subpart.product?.name?.toLowerCase() || "";
-        const groupName = subpart.product?.productGroupId?.name?.toLowerCase() || "";
-        const partNames = subpart.parts.map(part => part.partName.toLowerCase()).join(" ");
-        
-        if (!productName.includes(searchLower) && 
-            !groupName.includes(searchLower) && 
-            !partNames.includes(searchLower)) {
+        const groupName =
+          subpart.product?.productGroupId?.name?.toLowerCase() || "";
+        const partNames = subpart.parts
+          .map((part) => part.partName.toLowerCase())
+          .join(" ");
+
+        if (
+          !productName.includes(searchLower) &&
+          !groupName.includes(searchLower) &&
+          !partNames.includes(searchLower)
+        ) {
           return false;
         }
       }
-      
+
       // Group filter
       if (groupFilter && subpart.product?.productGroupId?._id !== groupFilter) {
         return false;
       }
-      
+
       // Product filter
       if (productFilter && subpart.product?._id !== productFilter) {
         return false;
       }
-      
+
       // Part name filter
       if (partNameFilter) {
         const partNameLower = partNameFilter.toLowerCase();
-        const hasMatchingPart = subpart.parts.some(part => 
+        const hasMatchingPart = subpart.parts.some((part) =>
           part.partName.toLowerCase().includes(partNameLower)
         );
         if (!hasMatchingPart) {
           return false;
         }
       }
-      
+
       return true;
     });
   };
 
   const handleSearchChange = (e) => {
     const { name, value } = e.target;
-    setSearchFilters(prev => ({
+    setSearchFilters((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
@@ -153,16 +159,21 @@ const SubpartsOverview = () => {
   // Helper function to highlight search terms
   const highlightText = (text, searchTerm) => {
     if (!searchTerm || !text) return text;
-    
-    const regex = new RegExp(`(${searchTerm})`, 'gi');
+
+    const regex = new RegExp(`(${searchTerm})`, "gi");
     const parts = text.split(regex);
-    
-    return parts.map((part, index) => 
+
+    return parts.map((part, index) =>
       regex.test(part) ? (
-        <span key={index} style={{ backgroundColor: '#fff3cd', fontWeight: 'bold' }}>
+        <span
+          key={index}
+          style={{ backgroundColor: "#fff3cd", fontWeight: "bold" }}
+        >
           {part}
         </span>
-      ) : part
+      ) : (
+        part
+      )
     );
   };
 
@@ -329,16 +340,22 @@ const SubpartsOverview = () => {
       </div>
 
       {/* Search and Filter Section */}
-      <div className="search-filter-section mt-4" style={{
-        backgroundColor: 'white',
-        padding: '20px',
-        borderRadius: '8px',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-        border: '1px solid #e9ecef'
-      }}>
+      <div
+        className="search-filter-section mt-4"
+        style={{
+          backgroundColor: "white",
+          padding: "20px",
+          borderRadius: "8px",
+          boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+          border: "1px solid #e9ecef",
+        }}
+      >
         <div className="row">
           <div className="col-md-3">
-            <label className="form-label" style={{ fontWeight: '500', color: '#121212' }}>
+            <label
+              className="form-label"
+              style={{ fontWeight: "500", color: "#121212" }}
+            >
               Search All
             </label>
             <input
@@ -348,11 +365,14 @@ const SubpartsOverview = () => {
               value={searchFilters.searchTerm}
               onChange={handleSearchChange}
               placeholder="Search products, groups, parts..."
-              style={{ fontSize: '14px' }}
+              style={{ fontSize: "14px" }}
             />
           </div>
           <div className="col-md-3">
-            <label className="form-label" style={{ fontWeight: '500', color: '#121212' }}>
+            <label
+              className="form-label"
+              style={{ fontWeight: "500", color: "#121212" }}
+            >
               Filter by Group
             </label>
             <select
@@ -360,7 +380,7 @@ const SubpartsOverview = () => {
               name="groupFilter"
               value={searchFilters.groupFilter}
               onChange={handleSearchChange}
-              style={{ fontSize: '14px' }}
+              style={{ fontSize: "14px" }}
             >
               <option value="">All Groups</option>
               {groups.map((group) => (
@@ -371,7 +391,10 @@ const SubpartsOverview = () => {
             </select>
           </div>
           <div className="col-md-3">
-            <label className="form-label" style={{ fontWeight: '500', color: '#121212' }}>
+            <label
+              className="form-label"
+              style={{ fontWeight: "500", color: "#121212" }}
+            >
               Filter by Product
             </label>
             <select
@@ -379,7 +402,7 @@ const SubpartsOverview = () => {
               name="productFilter"
               value={searchFilters.productFilter}
               onChange={handleSearchChange}
-              style={{ fontSize: '14px' }}
+              style={{ fontSize: "14px" }}
             >
               <option value="">All Products</option>
               {products.map((product) => (
@@ -390,7 +413,10 @@ const SubpartsOverview = () => {
             </select>
           </div>
           <div className="col-md-3">
-            <label className="form-label" style={{ fontWeight: '500', color: '#121212' }}>
+            <label
+              className="form-label"
+              style={{ fontWeight: "500", color: "#121212" }}
+            >
               Filter by Part Name
             </label>
             <input
@@ -400,31 +426,40 @@ const SubpartsOverview = () => {
               value={searchFilters.partNameFilter}
               onChange={handleSearchChange}
               placeholder="Search part names..."
-              style={{ fontSize: '14px' }}
+              style={{ fontSize: "14px" }}
             />
           </div>
         </div>
         <div className="row mt-3">
           <div className="col-12 d-flex justify-content-between align-items-center">
-            <div style={{ fontSize: '14px', color: '#6c757d' }}>
-              Showing {getFilteredSubparts().length} of {subparts.length} subparts
+            <div style={{ fontSize: "14px", color: "#6c757d" }}>
+              Showing {getFilteredSubparts().length} of {subparts.length}{" "}
+              subparts
               {searchFilters.searchTerm && (
-                <span style={{ marginLeft: '10px', color: '#28a745' }}>
+                <span style={{ marginLeft: "10px", color: "#28a745" }}>
                   • Search: "{searchFilters.searchTerm}"
                 </span>
               )}
               {searchFilters.groupFilter && (
-                <span style={{ marginLeft: '10px', color: '#007bff' }}>
-                  • Group: {groups.find(g => g._id === searchFilters.groupFilter)?.name}
+                <span style={{ marginLeft: "10px", color: "#007bff" }}>
+                  • Group:{" "}
+                  {
+                    groups.find((g) => g._id === searchFilters.groupFilter)
+                      ?.name
+                  }
                 </span>
               )}
               {searchFilters.productFilter && (
-                <span style={{ marginLeft: '10px', color: '#fd7e14' }}>
-                  • Product: {products.find(p => p._id === searchFilters.productFilter)?.name}
+                <span style={{ marginLeft: "10px", color: "#fd7e14" }}>
+                  • Product:{" "}
+                  {
+                    products.find((p) => p._id === searchFilters.productFilter)
+                      ?.name
+                  }
                 </span>
               )}
               {searchFilters.partNameFilter && (
-                <span style={{ marginLeft: '10px', color: '#6f42c1' }}>
+                <span style={{ marginLeft: "10px", color: "#6f42c1" }}>
                   • Part: "{searchFilters.partNameFilter}"
                 </span>
               )}
@@ -435,35 +470,49 @@ const SubpartsOverview = () => {
                 onClick={() => {
                   const filteredData = getFilteredSubparts();
                   const csvContent = [
-                    ['Group', 'Product', 'Part Name', 'Quantity', 'Color'],
-                    ...filteredData.flatMap(subpart => 
-                      subpart.parts.map(part => [
-                        subpart.product?.productGroupId?.name || 'N/A',
-                        subpart.product?.name || 'N/A',
+                    [
+                      "Group",
+                      "Product",
+                      "Product Type",
+                      "Product Category",
+                      "Part Name",
+                      "Quantity",
+                      "Color",
+                    ],
+                    ...filteredData.flatMap((subpart) =>
+                      subpart.parts.map((part) => [
+                        subpart.product?.productGroupId?.name || "N/A",
+                        subpart.product?.name || "N/A",
+                        subpart.product?.productTypeId?.name || "N/A",
+                        subpart.product?.categoryId?.name || "N/A",
                         part.partName,
                         part.quantity,
-                        part.color
+                        part.color,
                       ])
-                    )
-                  ].map(row => row.join(',')).join('\n');
-                  
-                  const blob = new Blob([csvContent], { type: 'text/csv' });
+                    ),
+                  ]
+                    .map((row) => row.join(","))
+                    .join("\n");
+
+                  const blob = new Blob([csvContent], { type: "text/csv" });
                   const url = window.URL.createObjectURL(blob);
-                  const a = document.createElement('a');
+                  const a = document.createElement("a");
                   a.href = url;
-                  a.download = `subparts_export_${new Date().toISOString().split('T')[0]}.csv`;
+                  a.download = `subparts_export_${
+                    new Date().toISOString().split("T")[0]
+                  }.csv`;
                   a.click();
                   window.URL.revokeObjectURL(url);
-                  toast.success('Export completed!');
+                  toast.success("Export completed!");
                 }}
-                style={{ fontSize: '14px' }}
+                style={{ fontSize: "14px" }}
               >
                 Export CSV
               </button>
               <button
                 className="post-button"
                 onClick={clearFilters}
-                style={{ fontSize: '14px' }}
+                style={{ fontSize: "14px" }}
               >
                 Clear Filters
               </button>
@@ -520,6 +569,26 @@ const SubpartsOverview = () => {
                   color: "#121212",
                 }}
               >
+                Category
+              </th>
+              <th
+                style={{
+                  padding: "12px",
+                  textAlign: "left",
+                  fontWeight: "600",
+                  color: "#121212",
+                }}
+              >
+                Type
+              </th>
+              <th
+                style={{
+                  padding: "12px",
+                  textAlign: "left",
+                  fontWeight: "600",
+                  color: "#121212",
+                }}
+              >
                 Parts
               </th>
               <th
@@ -549,7 +618,10 @@ const SubpartsOverview = () => {
                       color: "#121212",
                     }}
                   >
-                    {highlightText(subpart.product?.productGroupId?.name || "N/A", searchFilters.searchTerm)}
+                    {highlightText(
+                      subpart.product?.productGroupId?.name || "N/A",
+                      searchFilters.searchTerm
+                    )}
                   </td>
                   <td
                     style={{
@@ -559,91 +631,147 @@ const SubpartsOverview = () => {
                       color: "#121212",
                     }}
                   >
-                    {highlightText(subpart.product?.name || "N/A", searchFilters.searchTerm)}
+                    {highlightText(
+                      subpart.product?.name || "N/A",
+                      searchFilters.searchTerm
+                    )}
                   </td>
-                  <td style={{ padding: "12px", verticalAlign: "top" }}>
+                  <td
+                    style={{
+                      padding: "12px",
+                      verticalAlign: "top",
+                      fontWeight: "500",
+                      color: "#121212",
+                    }}
+                  >
+                    {highlightText(
+                      subpart.product?.categoryId?.name || "N/A",
+                      searchFilters.searchTerm
+                    )}
+                  </td>
+                  <td
+                    style={{
+                      padding: "12px",
+                      verticalAlign: "top",
+                      fontWeight: "500",
+                      color: "#121212",
+                    }}
+                  >
+                    {highlightText(
+                      subpart.product?.productTypeId?.name || "N/A",
+                      searchFilters.searchTerm
+                    )}
+                  </td>
+                  <td
+                    style={{
+                      padding: "12px",
+                      verticalAlign: "top",
+                      width: "600px",
+                    }}
+                  >
                     <div
                       style={{
                         maxWidth: "400px",
                       }}
                     >
-                      {subpart.parts.map((part, partIndex) => (
-                        <div
-                          key={partIndex}
-                          style={{
-                            padding: "12px",
-                            marginBottom:
-                              partIndex < subpart.parts.length - 1
-                                ? "12px"
-                                : "0",
-                            borderBottom:
-                              partIndex < subpart.parts.length - 1
-                                ? "1px solid #e9ecef"
-                                : "none",
-                            backgroundColor: "white",
-                            borderRadius: "8px",
-                            boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                            border: "1px solid #e9ecef",
-                          }}
-                        >
+                      {subpart.parts
+                        .reduce((rows, part, partIndex) => {
+                          if (partIndex % 2 === 0) {
+                            rows.push([part]);
+                          } else {
+                            rows[rows.length - 1].push(part);
+                          }
+                          return rows;
+                        }, [])
+                        .map((row, rowIndex) => (
                           <div
+                            key={rowIndex}
                             style={{
                               display: "flex",
-                              justifyContent: "space-between",
-                              alignItems: "flex-start",
-                              marginBottom: "8px",
+                              gap: "12px",
+                              marginBottom: "12px",
                             }}
                           >
-                            <div
-                              style={{
-                                fontWeight: "500",
-                                color: "#121212",
-                                fontSize: "1em",
-                              }}
-                            >
-                              {highlightText(part.partName, searchFilters.searchTerm || searchFilters.partNameFilter)}
-                            </div>
-                          </div>
-                          <div
-                            style={{
-                              display: "grid",
-                              gridTemplateColumns: "1fr 1fr",
-                              gap: "8px",
-                              fontSize: "0.85em",
-                              color: "#666",
-                            }}
-                          >
-                            <div
-                              style={{
-                                padding: "6px 8px",
-                                backgroundColor: "#fff",
-                                borderRadius: "4px",
-                              }}
-                            >
-                              <strong
-                                style={{ color: "#121212", fontWeight: "500" }}
+                            {row.map((part, partIndex) => (
+                              <div
+                                key={`${rowIndex}-${partIndex}`}
+                                style={{
+                                  flex: 1,
+                                  padding: "12px",
+                                  backgroundColor: "white",
+                                  borderRadius: "8px",
+                                  boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                                  border: "1px solid #e9ecef",
+                                  minWidth: "0",
+                                }}
                               >
-                                Quantity:
-                              </strong>{" "}
-                              {part.quantity}
-                            </div>
-                            <div
-                              style={{
-                                padding: "6px 8px",
-                                backgroundColor: "#fff",
-                                borderRadius: "4px",
-                              }}
-                            >
-                              <strong
-                                style={{ color: "#121212", fontWeight: "500" }}
-                              >
-                                Color:
-                              </strong>{" "}
-                              {part.color}
-                            </div>
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                    alignItems: "flex-start",
+                                    marginBottom: "8px",
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      fontWeight: "500",
+                                      color: "#121212",
+                                      fontSize: "1em",
+                                    }}
+                                  >
+                                    {highlightText(
+                                      part.partName,
+                                      searchFilters.searchTerm ||
+                                        searchFilters.partNameFilter
+                                    )}
+                                  </div>
+                                </div>
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    fontSize: "0.85em",
+                                    color: "#666",
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      padding: "6px 8px",
+                                      backgroundColor: "#fff",
+                                      borderRadius: "4px",
+                                    }}
+                                  >
+                                    <strong
+                                      style={{ color: "#121212", fontWeight: "500" }}
+                                    >
+                                      Quantity:
+                                    </strong>{" "}
+                                    {part.quantity}
+                                  </div>
+                                  <div
+                                    style={{
+                                      padding: "6px 8px",
+                                      backgroundColor: "#fff",
+                                      borderRadius: "4px",
+                                    }}
+                                  >
+                                    <strong
+                                      style={{ color: "#121212", fontWeight: "500" }}
+                                    >
+                                      Color:
+                                    </strong>{" "}
+                                    {part.color}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                            {/* Add empty div to maintain layout if odd number of parts */}
+                            {row.length === 1 && (
+                              <div style={{ flex: 1 }}></div>
+                            )}
                           </div>
-                        </div>
-                      ))}
+                        ))}
                     </div>
                   </td>
                   <td style={{ padding: "12px", verticalAlign: "top" }}>
@@ -659,7 +787,7 @@ const SubpartsOverview = () => {
               ))
             ) : (
               <tr>
-                <td colSpan="4" className="text-center">
+                <td colSpan="6" className="text-center">
                   {subparts.length === 0
                     ? "No subparts found."
                     : "No subparts match your search criteria."}
@@ -721,13 +849,56 @@ const SubpartsOverview = () => {
                       required
                       disabled={!subpartFormData.group}
                     >
-                      <option value="">{subpartFormData.group ? "Select Product" : "Select Group First"}</option>
+                      <option value="">
+                        {subpartFormData.group
+                          ? "Select Product"
+                          : "Select Group First"}
+                      </option>
                       {filteredProducts.map((product) => (
                         <option key={product._id} value={product._id}>
                           {product.name}
                         </option>
                       ))}
                     </select>
+                  </div>
+                </div>
+
+                <div className="row mt-3">
+                  <div className="col-md-6">
+                    <label className="form-label">Product Type</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={(() => {
+                        const selectedProduct = filteredProducts.find(
+                          (p) => p._id === subpartFormData.product
+                        );
+                        return selectedProduct?.productTypeId?.name || "N/A";
+                      })()}
+                      readOnly
+                      style={{
+                        backgroundColor: "#f8f9fa",
+                        borderColor: "#ced4da",
+                      }}
+                    />
+                  </div>
+                  <div className="col-md-6">
+                    <label className="form-label">Product Category</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={(() => {
+                        const selectedProduct = filteredProducts.find(
+                          (p) => p._id === subpartFormData.product
+                        );
+                        return selectedProduct?.categoryId?.name || "N/A";
+                      })()}
+                      readOnly
+                      style={{
+                        backgroundColor: "#f8f9fa",
+                        borderColor: "#ced4da",
+                      }}
+                    />
                   </div>
                 </div>
 
@@ -755,7 +926,11 @@ const SubpartsOverview = () => {
                         className="form-control"
                         value={part.quantity}
                         onChange={(e) =>
-                          handlePartChange(index, "quantity", parseInt(e.target.value))
+                          handlePartChange(
+                            index,
+                            "quantity",
+                            parseInt(e.target.value)
+                          )
                         }
                         min="1"
                         required
@@ -825,4 +1000,4 @@ const SubpartsOverview = () => {
   );
 };
 
-export default SubpartsOverview; 
+export default SubpartsOverview;

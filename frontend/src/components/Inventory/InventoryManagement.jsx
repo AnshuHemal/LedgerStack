@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import { toast } from "react-hot-toast";
 import "./InventoryManagement.css";
 
 const InventoryManagement = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  
   // State management
   const [activeTab, setActiveTab] = useState("dashboard");
   const [loading, setLoading] = useState(true);
@@ -32,6 +36,16 @@ const InventoryManagement = () => {
     }
   };
 
+  // Handle tab changes
+  const handleTabChange = (tabName) => {
+    setActiveTab(tabName);
+    if (tabName === 'dashboard') {
+      navigate('/inventory/manage');
+    } else {
+      navigate(`/inventory/manage/${tabName}`);
+    }
+  };
+
   // Fetch inventory status separately
   const fetchInventoryStatus = async () => {
     try {
@@ -46,6 +60,22 @@ const InventoryManagement = () => {
       setLoading(false);
     }
   };
+
+  // Handle URL-based tab switching
+  useEffect(() => {
+    const pathSegments = location.pathname.split('/');
+    const tabFromUrl = pathSegments[pathSegments.length - 1];
+    
+    // Define valid tabs
+    const validTabs = ['warehouse', 'products', 'subparts', 'orders', 'machines', 'daily-logs'];
+    
+    if (validTabs.includes(tabFromUrl)) {
+      setActiveTab(tabFromUrl);
+    } else {
+      // Default to dashboard if no valid tab in URL (base URL /inventory/manage)
+      setActiveTab('dashboard');
+    }
+  }, [location.pathname, navigate]);
 
   // Load all data on component mount
   useEffect(() => {
@@ -479,7 +509,7 @@ const InventoryManagement = () => {
             <div className="nav nav-tabs" id="inventoryTabs" role="tablist">
               <button
                 className={`nav-link ${activeTab === "dashboard" ? "active" : ""}`}
-                onClick={() => setActiveTab("dashboard")}
+                onClick={() => handleTabChange("dashboard")}
                 type="button"
                 role="tab"
               >
@@ -487,7 +517,7 @@ const InventoryManagement = () => {
               </button>
               <button
                 className={`nav-link ${activeTab === "warehouse" ? "active" : ""}`}
-                onClick={() => setActiveTab("warehouse")}
+                onClick={() => handleTabChange("warehouse")}
                 type="button"
                 role="tab"
               >
@@ -495,7 +525,7 @@ const InventoryManagement = () => {
               </button>
               <button
                 className={`nav-link ${activeTab === "products" ? "active" : ""}`}
-                onClick={() => setActiveTab("products")}
+                onClick={() => handleTabChange("products")}
                 type="button"
                 role="tab"
               >
@@ -503,7 +533,7 @@ const InventoryManagement = () => {
               </button>
               <button
                 className={`nav-link ${activeTab === "subparts" ? "active" : ""}`}
-                onClick={() => setActiveTab("subparts")}
+                onClick={() => handleTabChange("subparts")}
                 type="button"
                 role="tab"
               >
@@ -511,7 +541,7 @@ const InventoryManagement = () => {
               </button>
               <button
                 className={`nav-link ${activeTab === "orders" ? "active" : ""}`}
-                onClick={() => setActiveTab("orders")}
+                onClick={() => handleTabChange("orders")}
                 type="button"
                 role="tab"
               >
@@ -519,7 +549,7 @@ const InventoryManagement = () => {
               </button>
               <button
                 className={`nav-link ${activeTab === "machines" ? "active" : ""}`}
-                onClick={() => setActiveTab("machines")}
+                onClick={() => handleTabChange("machines")}
                 type="button"
                 role="tab"
               >
@@ -527,7 +557,7 @@ const InventoryManagement = () => {
               </button>
               <button
                 className={`nav-link ${activeTab === "daily-logs" ? "active" : ""}`}
-                onClick={() => setActiveTab("daily-logs")}
+                onClick={() => handleTabChange("daily-logs")}
                 type="button"
                 role="tab"
               >
