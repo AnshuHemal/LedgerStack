@@ -82,7 +82,7 @@ const App = () => {
           <Route path="inventory/manage/subparts" element={<InventoryManagement />} />
           <Route path="inventory/manage/orders" element={<InventoryManagement />} />
           <Route path="inventory/manage/machines" element={<InventoryManagement />} />
-          <Route path="inventory/manage/daily-logs" element={<InventoryManagement />} />
+
           <Route path="generate" element={<GenerateInvoice/>} />
         </Route>
       </Routes>

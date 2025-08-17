@@ -25,7 +25,7 @@ const InventoryManagement = () => {
     const tabFromUrl = pathSegments[pathSegments.length - 1];
     
     // Define valid tabs
-    const validTabs = ['warehouse', 'products', 'subparts', 'orders', 'machines', 'daily-logs'];
+    const validTabs = ['warehouse', 'products', 'subparts', 'orders', 'machines'];
     
     if (validTabs.includes(tabFromUrl)) {
       setActiveTab(tabFromUrl);
@@ -145,15 +145,7 @@ const InventoryManagement = () => {
     );
   };
 
-  const renderDailyLogs = () => (
-    <div className="daily-logs-section">
-      <div className="text-center py-5">
-        <i className="fas fa-clipboard-list fa-3x text-muted mb-3"></i>
-        <h4>Daily Logs</h4>
-        <p className="text-muted">Daily logs content will be implemented here</p>
-            </div>
-        </div>
-  );
+
 
   return (
     <div className="pt-2">
@@ -229,14 +221,7 @@ const InventoryManagement = () => {
               >
                 Production Unit
               </button>
-              <button
-                className={`nav-link ${activeTab === "daily-logs" ? "active" : ""}`}
-                onClick={() => handleTabChange("daily-logs")}
-                type="button"
-                role="tab"
-              >
-                Daily Logs
-              </button>
+
             </div>
           </div>
         </div>
@@ -251,7 +236,7 @@ const InventoryManagement = () => {
               {activeTab === "subparts" && renderSubparts()}
               {activeTab === "orders" && renderOrders()}
               {activeTab === "machines" && renderMachines()}
-              {activeTab === "daily-logs" && renderDailyLogs()}
+
             </div>
           </div>
         </div>
