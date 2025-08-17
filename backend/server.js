@@ -12,6 +12,7 @@ import ordersRoutes from "./routes/orders.route.js";
 import skuRoutes from "./routes/sku.route.js";
 import subpartRoutes from "./routes/subpart.route.js";
 import dashboardRoutes from "./routes/dashboard.route.js";
+import productionUnitRoutes from "./routes/productionUnit.route.js";
 
 import PDFDocument from "pdfkit";
 import fs from "fs";
@@ -54,6 +55,7 @@ app.use("/api/orders", ordersRoutes);
 app.use("/api/warehouse", skuRoutes);
 app.use("/api/subparts", subpartRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/production-unit", productionUnitRoutes);
 
 app.post("/generate-pdf", (req, res) => {
   const { header, content, footer } = req.body;

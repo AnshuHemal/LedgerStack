@@ -127,15 +127,23 @@ const InventoryManagement = () => {
   );
   };
 
-  const renderMachines = () => (
-    <div className="machines-section">
-      <div className="text-center py-5">
-        <i className="fas fa-cogs fa-3x text-muted mb-3"></i>
-        <h4>Machines Management</h4>
-        <p className="text-muted">Machines content will be implemented here</p>
+  const renderMachines = () => {
+    const ProductionUnitOverview = React.lazy(() => import('../ProductionUnit/ProductionUnitOverview'));
+    return (
+      <div className="machines-section">
+        <React.Suspense fallback={
+          <div className="text-center py-5">
+            <div className="spinner-border text-primary" role="status">
+              <span className="visually-hidden">Loading...</span>
+            </div>
+            <p className="mt-3">Loading Production Units...</p>
+          </div>
+        }>
+          <ProductionUnitOverview />
+        </React.Suspense>
       </div>
-      </div>
-  );
+    );
+  };
 
   const renderDailyLogs = () => (
     <div className="daily-logs-section">
