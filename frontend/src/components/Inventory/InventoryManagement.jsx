@@ -415,15 +415,23 @@ const InventoryManagement = () => {
   );
   };
 
-  const renderProducts = () => (
-    <div className="products-section">
-      <div className="text-center py-5">
-        <i className="fas fa-box fa-3x text-muted mb-3"></i>
-        <h4>Products Management</h4>
-        <p className="text-muted">Products content will be implemented here</p>
+  const renderProducts = () => {
+    const ProductsOverview = React.lazy(() => import('../Products/ProductsOverview'));
+    return (
+      <div className="products-section">
+        <React.Suspense fallback={
+          <div className="text-center py-5">
+            <div className="spinner-border text-primary" role="status">
+              <span className="visually-hidden">Loading...</span>
       </div>
+            <p className="mt-3">Loading Products...</p>
+      </div>
+        }>
+          <ProductsOverview />
+        </React.Suspense>
     </div>
   );
+  };
 
   const renderSubparts = () => {
     const SubpartsOverview = React.lazy(() => import('../Subparts/SubpartsOverview'));
@@ -553,7 +561,7 @@ const InventoryManagement = () => {
                 type="button"
                 role="tab"
               >
-                Machines
+                Production Unit
               </button>
               <button
                 className={`nav-link ${activeTab === "daily-logs" ? "active" : ""}`}

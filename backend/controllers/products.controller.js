@@ -4,6 +4,8 @@ import {
   ProductGroup,
   ProductType,
 } from "../models/user.model.js";
+import Subpart from "../models/subpart.model.js";
+import Sku from "../models/sku.model.js";
 
 // Add Product Group
 export const addProductGroup = async (req, res) => {
@@ -364,5 +366,107 @@ export const deleteProduct = async (req, res) => {
     res.status(200).json({ message: "Product deleted successfully" });
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+};
+
+// Get Products with Availability Calculation
+export const getProductsAvailability = async (req, res) => {
+  try {
+    // Get all products for the current user
+    const products = await Product.find({ createdBy: req.user.userId })
+      .populate("productGroupId", "name")
+      .populate("categoryId", "name")
+      .populate("productTypeId", "name");
+
+    const productsWithAvailability = [];
+
+    for (const product of products) {
+      // Find subparts for this product
+      const subpart = await Subpart.findOne({ 
+        product: product._id,
+        createdBy: req.user.userId 
+      });
+
+      if (!subpart || !subpart.parts || subpart.parts.length === 0) {
+        // No subparts defined, availability is 0
+        productsWithAvailability.push({
+          ...product.toObject(),
+          availableQuantity: 0,
+          subpartsRequired: []
+        });
+        continue;
+      }
+
+      // Calculate availability based on warehouse stock
+      let minAvailableQuantity = Infinity;
+      const subpartsRequired = [];
+
+      for (const part of subpart.parts) {
+        // Find all SKUs that contain this part
+        const skusWithPart = await Sku.find({
+          "products.parts.partName": part.partName,
+          "products.parts.color": part.color,
+          createdBy: req.user.userId
+        });
+
+        // Calculate total available quantity for this part
+        let totalPartQuantity = 0;
+        for (const sku of skusWithPart) {
+          for (const skuProduct of sku.products) {
+            for (const skuPart of skuProduct.parts) {
+              if (skuPart.partName === part.partName && skuPart.color === part.color) {
+                totalPartQuantity += skuPart.quantity || 0;
+              }
+            }
+          }
+        }
+
+        // Calculate how many products can be made with this part
+        const productsPossibleWithPart = Math.floor(totalPartQuantity / part.quantity);
+        
+        subpartsRequired.push({
+          partName: part.partName,
+          color: part.color,
+          quantityNeeded: part.quantity,
+          availableInWarehouse: totalPartQuantity,
+          productsPossible: productsPossibleWithPart
+        });
+
+        // Update minimum available quantity
+        if (productsPossibleWithPart < minAvailableQuantity) {
+          minAvailableQuantity = productsPossibleWithPart;
+        }
+      }
+
+      // If no parts found or all parts have 0 availability, set to 0
+      if (minAvailableQuantity === Infinity) {
+        minAvailableQuantity = 0;
+      }
+
+      // Now calculate remaining quantities based on the final available quantity
+      for (const part of subpartsRequired) {
+        // Calculate remaining quantity after making the available quantity of products
+        const remainingQuantity = part.availableInWarehouse - (minAvailableQuantity * part.quantityNeeded);
+        part.remainingQuantity = remainingQuantity;
+      }
+
+      productsWithAvailability.push({
+        ...product.toObject(),
+        availableQuantity: minAvailableQuantity,
+        subpartsRequired
+      });
+    }
+
+    res.status(200).json({
+      message: "Products availability calculated successfully",
+      data: productsWithAvailability
+    });
+
+  } catch (err) {
+    console.error("Error calculating products availability:", err);
+    res.status(500).json({ 
+      message: "Failed to calculate products availability", 
+      error: err.message 
+    });
   }
 };

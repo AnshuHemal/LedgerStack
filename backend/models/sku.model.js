@@ -4,7 +4,6 @@ const SkuSchema = mongoose.Schema(
   {
     skuCode: {
       type: String,
-      required: true,
       unique: true,
       trim: true,
     },
@@ -81,14 +80,19 @@ SkuSchema.pre("save", async function (next) {
       );
       
       let nextNumber = 1;
-      if (lastSku) {
+      if (lastSku && lastSku.skuCode) {
         const lastNumber = parseInt(lastSku.skuCode.replace("SKU-", ""));
-        nextNumber = lastNumber + 1;
+        if (!isNaN(lastNumber)) {
+          nextNumber = lastNumber + 1;
+        }
       }
       
       this.skuCode = `SKU-${nextNumber.toString().padStart(6, "0")}`;
+      console.log(`Generated SKU code: ${this.skuCode}`);
     } catch (error) {
-      return next(error);
+      console.error("Error generating SKU code:", error);
+      // Fallback: generate a timestamp-based code
+      this.skuCode = `SKU-${Date.now().toString().slice(-6)}`;
     }
   }
   next();

@@ -21,6 +21,7 @@ import {
   updateProductCategory,
   updateProductGroup,
   updateProductType,
+  getProductsAvailability,
 } from "../controllers/products.controller.js";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
@@ -69,6 +70,7 @@ router.delete("/product-category/:id", deleteProductCategory);
 // Product
 router.post("/", protect, addProduct);
 router.get("/", protect, getProduct);
+router.get("/availability", protect, getProductsAvailability);
 router.get("/group/:groupId", protect, getProductsByGroup);
 router.get("/:id", protect, getProductById);
 router.put("/:id", protect, updateProduct);

@@ -11,6 +11,9 @@ const OrdersOverview = () => {
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [formKey, setFormKey] = useState(0);
   const [searchFilters, setSearchFilters] = useState({
     searchTerm: "",
     companyFilter: "",
@@ -233,6 +236,46 @@ const OrdersOverview = () => {
     );
   };
 
+  const handleDoubleClick = async (order) => {
+    try {
+      console.log("Loading order for editing:", order);
+      setSelectedOrder(order);
+      setIsEditMode(true);
+      
+      // Set form data
+      setOrderFormData({
+        company: order.company?._id || "",
+        products: order.products?.map(product => ({
+          groupId: product.productId?.productGroupId?._id || "",
+          productId: product.productId?._id || "",
+          type: product.type || "",
+          size: product.size || "",
+          boxes: product.boxes || 1,
+          status: product.status || "pending",
+        })) || [],
+        customerContact: order.customerContact || "",
+        deliveryDate: order.deliveryDate || "",
+        priority: order.priority || "medium",
+      });
+
+      // Fetch products by group for each product
+      for (const product of order.products || []) {
+        if (product.productId?.productGroupId?._id) {
+          await fetchProductsByGroup(product.productId.productGroupId._id);
+          // Wait a bit for state to update
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+      }
+
+      // Increment form key to force re-render
+      setFormKey(prev => prev + 1);
+      setShowModal(true);
+    } catch (error) {
+      console.error("Failed to load order for editing:", error);
+      toast.error("Failed to load order for editing");
+    }
+  };
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setOrderFormData((prev) => ({
@@ -273,10 +316,12 @@ const OrdersOverview = () => {
           if (field === "groupId") {
             if (value) {
               fetchProductsByGroup(value);
-              // Clear product selection when group changes
-              updatedProduct.productId = "";
-              updatedProduct.type = "";
-              updatedProduct.size = "";
+              // Only clear product selection if not in edit mode
+              if (!isEditMode) {
+                updatedProduct.productId = "";
+                updatedProduct.type = "";
+                updatedProduct.size = "";
+              }
             }
           }
 
@@ -353,17 +398,27 @@ const OrdersOverview = () => {
 
     try {
       setLoading(true);
-      await axios.post(`${ORDERS_URL}`, orderFormData, {
-        withCredentials: true,
-      });
+      
+      if (isEditMode && selectedOrder) {
+        // Update existing order
+        await axios.put(`${ORDERS_URL}/${selectedOrder._id}`, orderFormData, {
+          withCredentials: true,
+        });
+        toast.success("Order updated successfully");
+      } else {
+        // Create new order
+        await axios.post(`${ORDERS_URL}`, orderFormData, {
+          withCredentials: true,
+        });
+        toast.success("Order created successfully");
+      }
 
-      toast.success("Order created successfully");
       setShowModal(false);
       resetForm();
       fetchOrders();
     } catch (error) {
-      console.error("Failed to create order:", error);
-      toast.error(error.response?.data?.message || "Failed to create order");
+      console.error(isEditMode ? "Failed to update order:" : "Failed to create order:", error);
+      toast.error(error.response?.data?.message || (isEditMode ? "Failed to update order" : "Failed to create order"));
     } finally {
       setLoading(false);
     }
@@ -386,6 +441,9 @@ const OrdersOverview = () => {
       deliveryDate: "",
       priority: "medium",
     });
+    setIsEditMode(false);
+    setSelectedOrder(null);
+    setFormKey(prev => prev + 1);
   };
 
   const handleDeleteOrder = async (orderId) => {
@@ -774,7 +832,8 @@ const OrdersOverview = () => {
               getFilteredOrders().map((order) => (
                 <tr
                   key={order._id}
-                  style={{ borderBottom: "1px solid #e9ecef" }}
+                  style={{ borderBottom: "1px solid #e9ecef", cursor: "pointer" }}
+                  onDoubleClick={() => handleDoubleClick(order)}
                 >
                   <td
                     style={{
@@ -965,14 +1024,14 @@ const OrdersOverview = () => {
         aria-labelledby="createOrderModalLabel"
         aria-hidden="true"
       >
-        <div className="modal-dialog modal-xl">
+        <div className="modal-dialog modal-fullscreen">
           <div className="modal-content">
             <div className="modal-header">
               <h5 className="modal-title" id="createOrderModalLabel">
-                Create New Order
+                {isEditMode ? "Edit Order" : "Create New Order"}
               </h5>
             </div>
-            <form onSubmit={handleSubmit}>
+            <form key={formKey} onSubmit={handleSubmit}>
               <div className="modal-body">
                 <div className="row">
                   <div className="col-md-6">
@@ -1073,8 +1132,8 @@ const OrdersOverview = () => {
 
                 <h6 className="mb-3">Products</h6>
                 {orderFormData.products.map((product, index) => (
-                  <div key={index} className="row mb-3">
-                    <div className="col-md-3">
+                  <div key={index} className="row mb-3 align-items-end">
+                    <div className="col-md-2">
                       <label className="form-label">Group *</label>
                       <select
                         className="form-control"
@@ -1092,7 +1151,7 @@ const OrdersOverview = () => {
                         ))}
                       </select>
                     </div>
-                    <div className="col-md-3">
+                    <div className="col-md-2">
                       <label className="form-label">Product *</label>
                       <select
                         className="form-control"
@@ -1164,7 +1223,7 @@ const OrdersOverview = () => {
                         }}
                       />
                     </div>
-                    <div className="col-md-2">
+                    <div className="col-md-1">
                       <label className="form-label">Boxes *</label>
                       <input
                         type="number"
@@ -1199,12 +1258,17 @@ const OrdersOverview = () => {
                         <option value="cancelled">Cancelled</option>
                       </select>
                     </div>
-                    <div className="col-md-1 d-flex align-items-end">
+                    <div className="col-md-1">
                       <button
                         type="button"
                         className="post-button"
                         onClick={() => removeProduct(index)}
                         disabled={orderFormData.products.length === 1}
+                        style={{ 
+                          fontSize: '0.8em',
+                          padding: '6px 12px',
+                          marginTop: '24px'
+                        }}
                       >
                         Remove
                       </button>
@@ -1240,7 +1304,7 @@ const OrdersOverview = () => {
                   className="login-button"
                   disabled={loading}
                 >
-                  {loading ? "Creating..." : "Create Order"}
+                  {loading ? (isEditMode ? "Updating..." : "Creating...") : (isEditMode ? "Update Order" : "Create Order")}
                 </button>
               </div>
             </form>

@@ -22,6 +22,26 @@ export const createSku = async (req, res) => {
       createdBy: req.user.userId,
     };
 
+    // Generate SKU code if not provided
+    if (!skuData.skuCode) {
+      try {
+        const lastSku = await Sku.findOne({}, {}, { sort: { skuCode: -1 } });
+        let nextNumber = 1;
+        if (lastSku && lastSku.skuCode) {
+          const lastNumber = parseInt(lastSku.skuCode.replace("SKU-", ""));
+          if (!isNaN(lastNumber)) {
+            nextNumber = lastNumber + 1;
+          }
+        }
+        skuData.skuCode = `SKU-${nextNumber.toString().padStart(6, "0")}`;
+        console.log(`Controller generated SKU code: ${skuData.skuCode}`);
+      } catch (error) {
+        console.error("Controller error generating SKU code:", error);
+        // Fallback: generate a timestamp-based code
+        skuData.skuCode = `SKU-${Date.now().toString().slice(-6)}`;
+      }
+    }
+
     const newSku = new Sku(skuData);
     await newSku.save();
 

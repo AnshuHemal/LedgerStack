@@ -13,6 +13,12 @@ const SubpartSchema = mongoose.Schema(
           type: String,
           required: true,
           trim: true,
+          validate: {
+            validator: function(v) {
+              return v && v.trim().length > 0;
+            },
+            message: 'Part name cannot be empty or null'
+          }
         },
         quantity: {
           type: Number,

@@ -5,6 +5,29 @@ import { Product } from "../models/user.model.js";
 export const createSubpart = async (req, res) => {
   try {
     console.log("Creating subpart with data:", req.body);
+    
+    // Validate that parts array is not empty and has valid data
+    if (!req.body.parts || !Array.isArray(req.body.parts) || req.body.parts.length === 0) {
+      return res.status(400).json({
+        message: "Parts array is required and cannot be empty"
+      });
+    }
+    
+    // Validate each part has required fields
+    for (let i = 0; i < req.body.parts.length; i++) {
+      const part = req.body.parts[i];
+      if (!part.partName || typeof part.partName !== 'string' || part.partName.trim().length === 0) {
+        return res.status(400).json({
+          message: `Part ${i + 1}: partName is required and cannot be empty`
+        });
+      }
+      if (!part.quantity || typeof part.quantity !== 'number' || part.quantity < 1) {
+        return res.status(400).json({
+          message: `Part ${i + 1}: quantity must be a number greater than 0`
+        });
+      }
+    }
+    
     const subpartData = {
       ...req.body,
       createdBy: req.user.userId,

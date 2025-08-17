@@ -11,6 +11,7 @@ const SubpartsOverview = () => {
   const [showModal, setShowModal] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedSubpart, setSelectedSubpart] = useState(null);
+  const [formKey, setFormKey] = useState(0);
   const [searchFilters, setSearchFilters] = useState({
     searchTerm: "",
     groupFilter: "",
@@ -188,17 +189,21 @@ const SubpartsOverview = () => {
     if (name === "group") {
       if (value) {
         fetchProductsByGroup(value);
-        // Clear product selection when group changes
-        setSubpartFormData((prev) => ({
-          ...prev,
-          product: "",
-        }));
+        // Only clear product selection if not in edit mode
+        if (!isEditMode) {
+          setSubpartFormData((prev) => ({
+            ...prev,
+            product: "",
+          }));
+        }
       } else {
         setFilteredProducts([]);
-        setSubpartFormData((prev) => ({
-          ...prev,
-          product: "",
-        }));
+        if (!isEditMode) {
+          setSubpartFormData((prev) => ({
+            ...prev,
+            product: "",
+          }));
+        }
       }
     }
   };
@@ -258,17 +263,27 @@ const SubpartsOverview = () => {
 
     try {
       setLoading(true);
-      await axios.post(`${SUBPARTS_URL}`, subpartFormData, {
-        withCredentials: true,
-      });
+      
+      if (isEditMode && selectedSubpart) {
+        // Update existing subpart
+        await axios.put(`${SUBPARTS_URL}/${selectedSubpart._id}`, subpartFormData, {
+          withCredentials: true,
+        });
+        toast.success("Subpart updated successfully");
+      } else {
+        // Create new subpart
+        await axios.post(`${SUBPARTS_URL}`, subpartFormData, {
+          withCredentials: true,
+        });
+        toast.success("Subpart created successfully");
+      }
 
-      toast.success("Subpart created successfully");
       setShowModal(false);
       resetForm();
       fetchSubparts();
     } catch (error) {
-      console.error("Failed to create subpart:", error);
-      toast.error(error.response?.data?.message || "Failed to create subpart");
+      console.error(isEditMode ? "Failed to update subpart:" : "Failed to create subpart:", error);
+      toast.error(error.response?.data?.message || (isEditMode ? "Failed to update subpart" : "Failed to create subpart"));
     } finally {
       setLoading(false);
     }
@@ -287,6 +302,42 @@ const SubpartsOverview = () => {
       ],
     });
     setFilteredProducts([]);
+    setIsEditMode(false);
+    setSelectedSubpart(null);
+    setFormKey(prev => prev + 1);
+  };
+
+  const handleDoubleClick = async (subpart) => {
+    try {
+      console.log("Loading subpart for editing:", subpart);
+      setSelectedSubpart(subpart);
+      setIsEditMode(true);
+      
+      // Set form data
+      setSubpartFormData({
+        group: subpart.product?.productGroupId?._id || "",
+        product: subpart.product?._id || "",
+        parts: subpart.parts?.map(part => ({
+          partName: part.partName || "",
+          quantity: part.quantity || 1,
+          color: part.color || "Black",
+        })) || []
+      });
+
+      // Fetch products by group for dropdown
+      if (subpart.product?.productGroupId?._id) {
+        await fetchProductsByGroup(subpart.product.productGroupId._id);
+        // Wait a bit for state to update
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      // Increment form key to force re-render
+      setFormKey(prev => prev + 1);
+      setShowModal(true);
+    } catch (error) {
+      console.error("Failed to load subpart for editing:", error);
+      toast.error("Failed to load subpart for editing");
+    }
   };
 
   const handleDeleteSubpart = async (subpartId) => {
@@ -608,7 +659,8 @@ const SubpartsOverview = () => {
               getFilteredSubparts().map((subpart) => (
                 <tr
                   key={subpart._id}
-                  style={{ borderBottom: "1px solid #e9ecef" }}
+                  style={{ borderBottom: "1px solid #e9ecef", cursor: "pointer" }}
+                  onDoubleClick={() => handleDoubleClick(subpart)}
                 >
                   <td
                     style={{
@@ -810,10 +862,10 @@ const SubpartsOverview = () => {
           <div className="modal-content">
             <div className="modal-header">
               <h5 className="modal-title" id="createSubpartModalLabel">
-                Create New Subpart
+                {isEditMode ? "Edit Subpart" : "Create New Subpart"}
               </h5>
             </div>
-            <form onSubmit={handleSubmit}>
+            <form key={formKey} onSubmit={handleSubmit}>
               <div className="modal-body">
                 <div className="row">
                   <div className="col-md-6">
@@ -989,7 +1041,7 @@ const SubpartsOverview = () => {
                   className="login-button"
                   disabled={loading}
                 >
-                  {loading ? "Creating..." : "Create Subpart"}
+                  {loading ? (isEditMode ? "Updating..." : "Creating...") : (isEditMode ? "Update Subpart" : "Create Subpart")}
                 </button>
               </div>
             </form>
