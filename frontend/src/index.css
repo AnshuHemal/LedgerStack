@@ -567,7 +567,7 @@ input[type="checkbox"] {
 .sales-table td:nth-child(11),
 .sales-table th:nth-child(12),
 .sales-table td:nth-child(12) {
-  max-width: 70px;
+  max-width: 50px;
   text-align: center;
   white-space: nowrap;
 }
@@ -625,3 +625,67 @@ body {
   max-width: 100%;
   overflow-x: hidden;
 }
+
+/* Proforma Invoice Table Column Widths */
+.proforma-table {
+  width: 100% !important;
+  table-layout: auto !important;
+  min-width: 100% !important;
+  margin-top: 20px;
+}
+
+/* Proforma table container */
+.proforma-table-container {
+  width: 100% !important;
+  min-width: 100% !important;
+  overflow-x: auto !important;
+  max-width: none !important;
+}
+
+/* Ensure modal body allows full width */
+.modal-body .proforma-table-container {
+  padding: 0 !important;
+  margin: 0 !important;
+  width: 100% !important;
+}
+
+.proforma-table th:nth-child(1),
+.proforma-table td:nth-child(1),
+.proforma-table th:nth-child(2),
+.proforma-table td:nth-child(2) {
+  min-width: 200px !important;
+  width: auto !important;
+  max-width: none !important;
+  white-space: nowrap;
+}
+
+.proforma-table th:nth-child(3),
+.proforma-table td:nth-child(3),
+.proforma-table th:nth-child(4),
+.proforma-table td:nth-child(4),
+.proforma-table th:nth-child(5),
+.proforma-table td:nth-child(5),
+.proforma-table th:nth-child(6),
+.proforma-table td:nth-child(6),
+.proforma-table th:nth-child(7),
+.proforma-table td:nth-child(7),
+.proforma-table th:nth-child(8),
+.proforma-table td:nth-child(8),
+.proforma-table th:nth-child(9),
+.proforma-table td:nth-child(9),
+.proforma-table th:nth-child(10),
+.proforma-table td:nth-child(10),
+.proforma-table th:nth-child(11),
+.proforma-table td:nth-child(11),
+.proforma-table th:nth-child(12),
+.proforma-table td:nth-child(12),
+.proforma-table th:nth-child(13),
+.proforma-table td:nth-child(13) {
+  min-width: 50px;
+  width: auto;
+  max-width: none;
+  text-align: center;
+  white-space: nowrap;
+}
+
+

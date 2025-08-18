@@ -118,6 +118,11 @@ const ProductSchema = mongoose.Schema(
   { timestamps: true }
 );
 
+// Create indexes for better query performance
+ProductSchema.index({ productGroupId: 1 });
+ProductSchema.index({ name: 1 });
+ProductSchema.index({ createdBy: 1 });
+
 const ProductGroupSchema = mongoose.Schema(
   {
     name: {
@@ -263,11 +268,7 @@ const SalesInvoiceSchema = mongoose.Schema(
       },
     },
 
-    vat_class: {
-      type: String,
-      enum: ["Tax Invoice", "Retail/Bill of Supplier", "Other Invoice"],
-      default: "Tax Invoice",
-    },
+    
     sales_account: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "AccountMaster",
@@ -406,11 +407,7 @@ const ProformaInvoiceSchema = mongoose.Schema(
       },
     },
 
-    vat_class: {
-      type: String,
-      enum: ["Tax Invoice", "Retail/Bill of Supplier", "Other Invoice"],
-      default: "Tax Invoice",
-    },
+    
     sales_account: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "AccountMaster",
@@ -536,11 +533,7 @@ const PurchaseInvoiceSchema = mongoose.Schema(
       type: Number,
       required: true,
     },
-    vat_class: {
-      type: String,
-      enum: ["Tax Invoice", "Retail/Bill of Supplier", "Other Invoice"],
-      default: "Tax Invoice",
-    },
+    
     purchase_account: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "AccountMaster",

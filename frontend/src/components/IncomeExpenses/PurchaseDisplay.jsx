@@ -8,6 +8,7 @@ const PurchaseDisplay = () => {
   const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [products, setProducts] = useState([]);
+  const [productGroups, setProductGroups] = useState([]);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState(null);
 
   const [formData, setFormData] = useState({
@@ -16,10 +17,11 @@ const PurchaseDisplay = () => {
     voucher_no: 0,
     bill_date: new Date().toISOString().split("T")[0],
     bill_no: 0,
-    vat_class: "Tax Invoice",
+
     purchase_account: "",
     products: [
       {
+        productGroup: "",
         product: "",
         quantity: 0,
         unit: "",
@@ -59,9 +61,21 @@ const PurchaseDisplay = () => {
   const fetchData = async () => {
     try {
       const productRes = await axios.get(`${PRODUCT_URL}/`);
+      const productGroupRes = await axios.get(`${PRODUCT_URL}/product-group`);
       setProducts(productRes.data);
+      setProductGroups(productGroupRes.data);
     } catch (error) {
       console.error("Error fetching meta data:", error);
+    }
+  };
+
+  const fetchProductsByGroup = async (groupId) => {
+    try {
+      const response = await axios.get(`${PRODUCT_URL}/group/${groupId}`);
+      setProducts(response.data);
+    } catch (error) {
+      console.error("Error fetching products by group:", error);
+      toast.error("Failed to fetch products for selected group");
     }
   };
 
@@ -94,14 +108,56 @@ const PurchaseDisplay = () => {
     }));
   }, [formData.products]);
 
-  const handleRowClick = (invoice) => {
+  const handleRowClick = async (invoice) => {
+    // Process products to set productGroup based on product information
+    const processedProducts = await Promise.all(
+      invoice.products.map(async (prod) => {
+        if (prod.product && prod.product.productGroupId) {
+          // If product has group info, set it
+          return {
+            ...prod,
+            productGroup:
+              prod.product.productGroupId._id || prod.product.productGroupId,
+          };
+        } else if (prod.product) {
+          // Try to find the product and get its group
+          try {
+            const productResponse = await axios.get(
+              `${PRODUCT_URL}/${prod.product._id || prod.product}`
+            );
+            if (productResponse.data && productResponse.data.productGroupId) {
+              return {
+                ...prod,
+                productGroup:
+                  productResponse.data.productGroupId._id ||
+                  productResponse.data.productGroupId,
+              };
+            }
+          } catch (error) {
+            console.error("Error fetching product details:", error);
+          }
+        }
+        return prod;
+      })
+    );
+
     setFormData({
       ...invoice,
+      products: processedProducts,
       bill_date: new Date(invoice.bill_date).toISOString().split("T")[0],
       voucher_date: new Date(invoice.voucher_date).toISOString().split("T")[0],
     });
     setSelectedInvoiceId(invoice._id);
     setShowModal(true);
+
+    // Fetch products for all product groups in the invoice
+    const uniqueGroups = [
+      ...new Set(processedProducts.map((p) => p.productGroup).filter(Boolean)),
+    ];
+    if (uniqueGroups.length > 0) {
+      // Fetch products for the first group to populate the dropdown
+      await fetchProductsByGroup(uniqueGroups[0]);
+    }
   };
 
   const handleChange = (e) => {
@@ -173,6 +229,31 @@ const PurchaseDisplay = () => {
     const { name, value } = e.target;
     const updatedProducts = [...formData.products];
 
+    if (name === "productGroup") {
+      // Clear the selected product and related fields when group changes
+      updatedProducts[index] = {
+        ...updatedProducts[index],
+        productGroup: value,
+        product: "",
+        unit: "",
+        rate: 0,
+        igst: null,
+        cgst: null,
+        sgst: null,
+      };
+
+      // Fetch products for the selected group
+      if (value) {
+        fetchProductsByGroup(value);
+      }
+
+      setFormData((prev) => ({
+        ...prev,
+        products: updatedProducts,
+      }));
+      return;
+    }
+
     if (name === "product") {
       const selectedProduct = products.find((p) => p._id === value);
 
@@ -206,6 +287,7 @@ const PurchaseDisplay = () => {
       products: [
         ...prev.products,
         {
+          productGroup: "",
           product: "",
           rate: "",
           unit: "",
@@ -219,7 +301,12 @@ const PurchaseDisplay = () => {
 
   const isLastProductRowValid = () => {
     const lastProduct = formData.products[formData.products.length - 1];
-    return lastProduct.product && lastProduct.rate && lastProduct.unit;
+    return (
+      lastProduct.productGroup &&
+      lastProduct.product &&
+      lastProduct.rate &&
+      lastProduct.unit
+    );
   };
 
   const handleRemoveProductRow = (indexToRemove) => {
@@ -356,23 +443,6 @@ const PurchaseDisplay = () => {
                     onChange={handleChange}
                   />
                 </div>
-                <div className="col-md-4">
-                  <label htmlFor="name" className="form-label">
-                    VAT Class
-                  </label>
-                  <select
-                    className="select-dropdown"
-                    name="vat_class"
-                    onChange={handleChange}
-                    value={formData.vat_class}
-                  >
-                    <option value="Tax Invoice">Tax Invoice</option>
-                    <option value="Retail/Bill of Supplier">
-                      Retail/Bill of Supplier
-                    </option>
-                    <option value="Other Invoice">Other Invoice</option>
-                  </select>
-                </div>
               </div>
 
               <div className="row mt-3">
@@ -390,9 +460,9 @@ const PurchaseDisplay = () => {
                 </div>
               </div>
 
-              <div className="mt-3" style={{ overflowX: "auto" }}>
+              <div className="mt-3 proforma-table-container">
                 <table
-                  className="modern-table purchase-table text-center"
+                  className="modern-table proforma-table text-center"
                   style={{
                     borderSpacing: "0 12px",
                     borderCollapse: "separate",
@@ -400,6 +470,7 @@ const PurchaseDisplay = () => {
                 >
                   <thead>
                     <tr>
+                      <th>Product Group</th>
                       <th>Product</th>
                       <th>Qty</th>
                       <th>Unit</th>
@@ -413,28 +484,46 @@ const PurchaseDisplay = () => {
                   <tbody>
                     {formData.products.map((prod, idx) => (
                       <tr key={idx}>
-                        <select
-                          name="product"
-                          className="form-control"
-                          value={prod.product?._id || prod.product || ""}
-                          onChange={(e) => handleProductChange(e, idx)}
-                        >
-                          <option value="">-- Select Product --</option>
-                          {products
-                            .filter(
-                              (p) =>
-                                !formData.products.some(
-                                  (fp, i) =>
-                                    (fp.product?._id || fp.product) === p._id &&
-                                    i !== idx
-                                )
-                            )
-                            .map((p) => (
-                              <option key={p._id} value={p._id}>
-                                {p.name}
+                        <td>
+                          <select
+                            name="productGroup"
+                            className="form-control"
+                            value={prod.productGroup || ""}
+                            onChange={(e) => handleProductChange(e, idx)}
+                          >
+                            <option value="">-- Select Group --</option>
+                            {productGroups.map((group) => (
+                              <option key={group._id} value={group._id}>
+                                {group.name}
                               </option>
                             ))}
-                        </select>
+                          </select>
+                        </td>
+                        <td>
+                          <select
+                            name="product"
+                            className="form-control"
+                            value={prod.product?._id || prod.product || ""}
+                            onChange={(e) => handleProductChange(e, idx)}
+                            disabled={!prod.productGroup}
+                          >
+                            <option value="">-- Select Product --</option>
+                            {products
+                              .filter(
+                                (p) =>
+                                  !formData.products.some(
+                                    (fp, i) =>
+                                      (fp.product?._id || fp.product) ===
+                                        p._id && i !== idx
+                                  )
+                              )
+                              .map((p) => (
+                                <option key={p._id} value={p._id}>
+                                  {p.name}
+                                </option>
+                              ))}
+                          </select>
+                        </td>
 
                         <td>
                           <input
@@ -560,6 +649,7 @@ const PurchaseDisplay = () => {
 
                     <tr>
                       <td></td>
+                      <td></td>
                       <td>{totalQuantity.toFixed(2)}</td>
                       <td></td>
                       <td></td>
@@ -570,6 +660,7 @@ const PurchaseDisplay = () => {
                     </tr>
 
                     <tr>
+                      <td></td>
                       <td></td>
                       <td></td>
                       <td></td>

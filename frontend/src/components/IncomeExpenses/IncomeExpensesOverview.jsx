@@ -12,6 +12,7 @@ const IncomeExpensesOverview = () => {
   const [selectedTab, setSelectedTab] = useState("sales-display");
   const [accounts, setAccounts] = useState([]);
   const [products, setProducts] = useState([]);
+  const [productGroups, setProductGroups] = useState([]);
   const [transportations, setTransportations] = useState([]);
   const [showSalesAddModal, setShowSalesAddModal] = useState(false);
   const [showPurchaseAddModal, setShowPurchaseAddModal] = useState(false);
@@ -27,7 +28,7 @@ const IncomeExpensesOverview = () => {
     cash_debit: "Debit Memo",
     bill_date: new Date().toISOString().split("T")[0],
     bill_no: { bill_prefix: "Invoice ", no: 0 },
-    vat_class: "Tax Invoice",
+    
     sales_account: "",
     po_no: "",
     lr_no: "",
@@ -49,6 +50,7 @@ const IncomeExpensesOverview = () => {
 
     products: [
       {
+        productGroup: "",
         product: "",
         boxes: 0,
         no_of_pcs: 0,
@@ -74,10 +76,11 @@ const IncomeExpensesOverview = () => {
     voucher_no: 0,
     bill_date: new Date().toISOString().split("T")[0],
     bill_no: 0,
-    vat_class: "Tax Invoice",
+    
     purchase_account: "",
     products: [
       {
+        productGroup: "",
         product: "",
         quantity: 0,
         unit: "",
@@ -144,8 +147,10 @@ const IncomeExpensesOverview = () => {
         `${INCOME_EXPENSES_URL}/transportation`
       );
       const productRes = await axios.get(`${PRODUCT_URL}/`);
+      const productGroupRes = await axios.get(`${PRODUCT_URL}/product-group`);
       setAccounts(accountRes.data);
       setProducts(productRes.data);
+      setProductGroups(productGroupRes.data);
       setTransportations(transportationRes.data.data);
 
       const salesBillRes = await axios.get(`${INCOME_EXPENSES_URL}/sales-bill`);
@@ -157,6 +162,16 @@ const IncomeExpensesOverview = () => {
       }));
     } catch (error) {
       console.error("Error fetching accounts/products:", error);
+    }
+  };
+
+  const fetchProductsByGroup = async (groupId) => {
+    try {
+      const response = await axios.get(`${PRODUCT_URL}/group/${groupId}`);
+      setProducts(response.data);
+    } catch (error) {
+      console.error("Error fetching products by group:", error);
+      toast.error("Failed to fetch products for selected group");
     }
   };
 
@@ -322,6 +337,7 @@ const IncomeExpensesOverview = () => {
       products: [
         ...prev.products,
         {
+          productGroup: "",
           product: "",
           boxes: "",
           no_of_pcs: "",
@@ -342,6 +358,7 @@ const IncomeExpensesOverview = () => {
       products: [
         ...prev.products,
         {
+          productGroup: "",
           product: "",
           quantity: "",
           unit: "",
@@ -357,6 +374,7 @@ const IncomeExpensesOverview = () => {
   const isLastProductRowValid = () => {
     const lastProduct = form.products[form.products.length - 1];
     return (
+      lastProduct.productGroup &&
       lastProduct.product &&
       lastProduct.boxes &&
       lastProduct.no_of_pcs &&
@@ -370,6 +388,7 @@ const IncomeExpensesOverview = () => {
     const lastProduct =
       purchaseFormData.products[purchaseFormData.products.length - 1];
     return (
+      lastProduct.productGroup &&
       lastProduct.product &&
       lastProduct.quantity &&
       lastProduct.unit &&
@@ -534,6 +553,7 @@ const IncomeExpensesOverview = () => {
 
         products: [
           {
+            productGroup: "",
             product: "",
             boxes: 0,
             no_of_pcs: 0,
@@ -705,23 +725,7 @@ const IncomeExpensesOverview = () => {
                   </div>
                 </div>
 
-                <div className="col-lg-3">
-                  <label htmlFor="name" className="form-label">
-                    VAT Class
-                  </label>
-                  <select
-                    className="select-dropdown"
-                    name="vat_class"
-                    onChange={handleChange}
-                    value={form.vat_class}
-                  >
-                    <option value="Tax Invoice">Tax Invoice</option>
-                    <option value="Retail/Bill of Supplier">
-                      Retail/Bill of Supplier
-                    </option>
-                    <option value="Other Invoice">Other Invoice</option>
-                  </select>
-                </div>
+                
               </div>
 
               <div className="row mt-3">
@@ -795,6 +799,7 @@ const IncomeExpensesOverview = () => {
                 >
                   <thead>
                     <tr>
+                      <th>Product Group</th>
                       <th>Product</th>
                       <th>Box</th>
                       <th>No of pcs</th>
@@ -825,10 +830,47 @@ const IncomeExpensesOverview = () => {
                       <tr key={idx}>
                         <td>
                           <select
+                            name="productGroup"
+                            className="form-control"
+                            value={prod.productGroup}
+                                                         onChange={(e) => {
+                               const updatedProducts = [...form.products];
+                               updatedProducts[idx] = {
+                                 ...updatedProducts[idx],
+                                 productGroup: e.target.value,
+                                 product: "",
+                                 unit: "",
+                                 rate: 0,
+                                 igst: null,
+                                 cgst: null,
+                                 sgst: null,
+                               };
+                               setForm((prev) => ({
+                                 ...prev,
+                                 products: updatedProducts,
+                               }));
+                               
+                               // Fetch products for the selected group
+                               if (e.target.value) {
+                                 fetchProductsByGroup(e.target.value);
+                               }
+                             }}
+                          >
+                            <option value="">-- Select Product Group --</option>
+                            {productGroups.map((group) => (
+                              <option key={group._id} value={group._id}>
+                                {group.name}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td>
+                          <select
                             name="product"
                             className="form-control"
                             value={prod.product}
                             onChange={(e) => handleProductChange(e, idx)}
+                            disabled={!prod.productGroup}
                           >
                             <option value="">-- Select Product --</option>
                             {products
@@ -1515,24 +1557,7 @@ const IncomeExpensesOverview = () => {
                     onChange={handlePurchaseChange}
                   />
                 </div>
-                <div className="col-md-4">
-                  <label htmlFor="name" className="form-label">
-                    VAT Class
-                  </label>{" "}
-                  <br />
-                  <select
-                    className="select-dropdown"
-                    name="vat_class"
-                    onChange={handlePurchaseChange}
-                    value={purchaseFormData.vat_class}
-                  >
-                    <option value="Tax Invoice">Tax Invoice</option>
-                    <option value="Retail/Bill of Supplier">
-                      Retail/Bill of Supplier
-                    </option>
-                    <option value="Other Invoice">Other Invoice</option>
-                  </select>
-                </div>
+                
               </div>
               <div className="row mt-3">
                 <div className="col-md-6">
@@ -1565,6 +1590,7 @@ const IncomeExpensesOverview = () => {
                 >
                   <thead>
                     <tr>
+                      <th>Product Group</th>
                       <th>Product</th>
                       <th>Qty</th>
                       <th>Unit</th>
@@ -1580,12 +1606,49 @@ const IncomeExpensesOverview = () => {
                       <tr key={idx}>
                         <td>
                           <select
+                            name="productGroup"
+                            className="form-control"
+                            value={prod.productGroup}
+                                                         onChange={(e) => {
+                               const updatedProducts = [...purchaseFormData.products];
+                               updatedProducts[idx] = {
+                                 ...updatedProducts[idx],
+                                 productGroup: e.target.value,
+                                 product: "",
+                                 unit: "",
+                                 rate: 0,
+                                 igst: null,
+                                 cgst: null,
+                                 sgst: null,
+                               };
+                               setPurchaseFormData((prev) => ({
+                                 ...prev,
+                                 products: updatedProducts,
+                               }));
+                               
+                               // Fetch products for the selected group
+                               if (e.target.value) {
+                                 fetchProductsByGroup(e.target.value);
+                               }
+                             }}
+                          >
+                            <option value="">-- Select Product Group --</option>
+                            {productGroups.map((group) => (
+                              <option key={group._id} value={group._id}>
+                                {group.name}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td>
+                          <select
                             name="product"
                             className="form-control"
                             value={prod.product}
                             onChange={(e) =>
                               handlePurchaseProductChange(e, idx)
                             }
+                            disabled={!prod.productGroup}
                           >
                             <option value="">-- Select Product --</option>
                             {products

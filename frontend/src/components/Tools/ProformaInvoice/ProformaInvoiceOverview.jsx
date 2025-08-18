@@ -7,6 +7,7 @@ const ProformaInvoiceOverview = () => {
   const [selectedTab, setSelectedTab] = useState("proforma-display");
   const [accounts, setAccounts] = useState([]);
   const [products, setProducts] = useState([]);
+  const [productGroups, setProductGroups] = useState([]);
   const [transportations, setTransportations] = useState([]);
   const [error, setError] = useState("");
   const [showProformaAddModal, setShowProformaAddModal] = useState(false);
@@ -20,7 +21,7 @@ const ProformaInvoiceOverview = () => {
     cash_debit: "Debit Memo",
     bill_date: new Date().toISOString().split("T")[0],
     bill_no: { bill_prefix: "Invoice ", no: 0 },
-    vat_class: "Tax Invoice",
+    
     sales_account: "",
     po_no: "",
     lr_no: "",
@@ -42,6 +43,7 @@ const ProformaInvoiceOverview = () => {
 
     products: [
       {
+        productGroup: "",
         product: "",
         boxes: 0,
         no_of_pcs: 0,
@@ -75,18 +77,16 @@ const ProformaInvoiceOverview = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const accountRes = await axios.get(`${ACCOUNT_URL}/account-master`);
-        const transportationRes = await axios.get(
-          `${INCOME_EXPENSES_URL}/transportation`
-        );
-        const productRes = await axios.get(`${PRODUCT_URL}/`);
-        setAccounts(accountRes.data);
-        setProducts(productRes.data);
-        setTransportations(transportationRes.data.data);
+        const [accountRes, transportationRes, productGroupRes, proformaBillRes] = await Promise.all([
+          axios.get(`${ACCOUNT_URL}/account-master`),
+          axios.get(`${INCOME_EXPENSES_URL}/transportation`),
+          axios.get(`${PRODUCT_URL}/product-group`),
+          axios.get(`${INCOME_EXPENSES_URL}/proforma-bill`)
+        ]);
 
-        const proformaBillRes = await axios.get(
-          `${INCOME_EXPENSES_URL}/proforma-bill`
-        );
+        setAccounts(accountRes.data);
+        setTransportations(transportationRes.data.data);
+        setProductGroups(productGroupRes.data);
 
         const currentBillNo = proformaBillRes.data.data.no;
 
@@ -197,11 +197,40 @@ const ProformaInvoiceOverview = () => {
     }));
   };
 
+  const fetchProductsByGroup = async (groupId) => {
+    try {
+      if (!groupId) {
+        setProducts([]);
+        return;
+      }
+      const response = await axios.get(`${PRODUCT_URL}/group/${groupId}`);
+      setProducts(response.data || []);
+    } catch (error) {
+      console.error("Error fetching products by group:", error);
+      setProducts([]);
+    }
+  };
+
   const handleProductChange = (e, index) => {
     const { name, value } = e.target;
     const updatedProducts = [...form.products];
 
-    if (name === "product") {
+    if (name === "productGroup") {
+      // Clear product selection when group changes
+      updatedProducts[index] = {
+        ...updatedProducts[index],
+        productGroup: value,
+        product: "",
+        unit: "",
+        rate: "",
+        igst: null,
+        cgst: null,
+        sgst: null,
+      };
+      
+      // Fetch products for the selected group
+      fetchProductsByGroup(value);
+    } else if (name === "product") {
       const selectedProduct = products.find((p) => p._id === value);
 
       if (selectedProduct) {
@@ -234,6 +263,7 @@ const ProformaInvoiceOverview = () => {
       products: [
         ...prev.products,
         {
+          productGroup: "",
           product: "",
           boxes: "",
           no_of_pcs: "",
@@ -251,6 +281,7 @@ const ProformaInvoiceOverview = () => {
   const isLastProductRowValid = () => {
     const lastProduct = form.products[form.products.length - 1];
     return (
+      lastProduct.productGroup &&
       lastProduct.product &&
       lastProduct.boxes &&
       lastProduct.no_of_pcs &&
@@ -461,23 +492,7 @@ const ProformaInvoiceOverview = () => {
                   </div>
                 </div>
 
-                <div className="col-lg-3">
-                  <label htmlFor="name" className="form-label">
-                    VAT Class
-                  </label>
-                  <select
-                    className="select-dropdown"
-                    name="vat_class"
-                    onChange={handleChange}
-                    value={form.vat_class}
-                  >
-                    <option value="Tax Invoice">Tax Invoice</option>
-                    <option value="Retail/Bill of Supplier">
-                      Retail/Bill of Supplier
-                    </option>
-                    <option value="Other Invoice">Other Invoice</option>
-                  </select>
-                </div>
+                
               </div>
 
               <div className="row mt-3">
@@ -541,9 +556,9 @@ const ProformaInvoiceOverview = () => {
                 </div>
               </div>
 
-              <div className="mt-3" style={{ overflowX: "auto" }}>
+              <div className="mt-3 proforma-table-container">
                 <table
-                  className="modern-table sales-table text-center"
+                  className="modern-table proforma-table text-center"
                   style={{
                     borderSpacing: "0 12px",
                     borderCollapse: "separate",
@@ -551,6 +566,7 @@ const ProformaInvoiceOverview = () => {
                 >
                   <thead>
                     <tr>
+                      <th>Group</th>
                       <th>Product</th>
                       <th>Box</th>
                       <th>No of pcs</th>
@@ -581,10 +597,28 @@ const ProformaInvoiceOverview = () => {
                       <tr key={idx}>
                         <td>
                           <select
+                            name="productGroup"
+                            className="form-control"
+                            value={prod.productGroup || ""}
+                            onChange={(e) => handleProductChange(e, idx)}
+                            required
+                          >
+                            <option value="">-- Select Group --</option>
+                            {productGroups.map((group) => (
+                              <option key={group._id} value={group._id}>
+                                {group.name}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td>
+                          <select
                             name="product"
                             className="form-control"
                             value={prod.product}
                             onChange={(e) => handleProductChange(e, idx)}
+                            disabled={!prod.productGroup}
+                            required
                           >
                             <option value="">-- Select Product --</option>
                             {products
@@ -599,6 +633,11 @@ const ProformaInvoiceOverview = () => {
                                   {p.name}
                                 </option>
                               ))}
+                            {products.length === 0 && prod.productGroup && (
+                              <option value="" disabled>
+                                No products available
+                              </option>
+                            )}
                           </select>
                         </td>
                         <td>
@@ -782,6 +821,7 @@ const ProformaInvoiceOverview = () => {
                     ))}
                     <tr>
                       <td></td>
+                      <td></td>
                       <td>{totalBoxes.toFixed(2)}</td>
                       <td></td>
                       <td>{totalQuantity.toFixed(2)}</td>
@@ -794,6 +834,7 @@ const ProformaInvoiceOverview = () => {
                       <td>{form.total_products_amount.toFixed(2)}</td>
                     </tr>
                     <tr>
+                      <td></td>
                       <td></td>
                       <td></td>
                       <td></td>
@@ -826,6 +867,7 @@ const ProformaInvoiceOverview = () => {
                       </td>
                     </tr>
                     <tr>
+                      <td></td>
                       <td></td>
                       <td></td>
                       <td></td>
