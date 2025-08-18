@@ -1,6 +1,6 @@
 import axios from "axios";
 import "bootstrap/dist/css/bootstrap.min.css";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import Lottie from "lottie-react";
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
@@ -28,6 +28,44 @@ const Signup = () => {
   const navigate = useNavigate();
 
   const API_URL = "http://localhost:5000/api/auth";
+  const COMPANY_URL = "http://localhost:5000/api/company";
+  const BANK_URL = "http://localhost:5000/api/bank-details";
+
+  // Company Details Modal State
+  const [showCompanyModal, setShowCompanyModal] = useState(false);
+  const [companyMode, setCompanyMode] = useState("auto"); // 'auto' | 'manual'
+  const [gstinInput, setGstinInput] = useState("");
+  const [isFetchingGstin, setIsFetchingGstin] = useState(false);
+  const [companyDetails, setCompanyDetails] = useState({
+    companyName: "",
+    address1: "",
+    address2: "",
+    authorisedPerson: "",
+    registeredAddress1: "",
+    registeredAddress2: "",
+    city: "",
+    pincode: "",
+    district: "",
+    state: "",
+    phone: "",
+    email: "",
+    website: "",
+    gstin: "",
+    pan: "",
+    bankDetails: {
+      bankName: "",
+      accountNumber: "",
+      branch: "",
+      ifscCode: "",
+    },
+  });
+
+  const isValidGSTIN = useMemo(() => /^[0-9A-Z]{15}$/i, []);
+  const isValidPAN = useMemo(() => /^[0-9A-Z]{10}$/i, []);
+  const isValidPincode = useMemo(() => /^\d{6}$/i, []);
+  const isValidPhone = useMemo(() => /^\d{10}$/i, []);
+  const isValidAccountNumber = useMemo(() => /^\d{9,18}$/i, []);
+  const isValidIFSC = useMemo(() => /^[A-Z]{4}0[A-Z0-9]{6}$/i, []);
 
   const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
@@ -149,12 +187,25 @@ const Signup = () => {
     }
 
     try {
+      const hasAnyCompanyField = Object.entries(companyDetails).some(
+        ([k, v]) =>
+          k !== "bankDetails" && typeof v === "string" && v.trim() !== ""
+      );
+      const bd = companyDetails.bankDetails || {};
+      const anyBankProvided =
+        bd.bankName?.trim() ||
+        bd.accountNumber?.trim() ||
+        bd.branch?.trim() ||
+        bd.ifscCode?.trim();
+
       const response = await axios.post(
         `${API_URL}/signup`,
         {
           fullname,
           email,
           password,
+          companyDetails:
+            hasAnyCompanyField || anyBankProvided ? companyDetails : undefined,
         },
         { withCredentials: true }
       );
@@ -171,6 +222,48 @@ const Signup = () => {
           "Something went wrong. Please try again."
       );
     }
+  };
+
+  const handleOpenCompanyModal = () => setShowCompanyModal(true);
+  const handleCloseCompanyModal = () => setShowCompanyModal(false);
+
+  const handleFetchGstin = async () => {
+    if (!gstinInput || !isValidGSTIN.test(gstinInput)) {
+      toast.error("Enter a valid 15-character GSTIN");
+      return;
+    }
+    try {
+      setIsFetchingGstin(true);
+      const resp = await axios.get(`${COMPANY_URL}/fetch-gstin/${gstinInput}`, {
+        withCredentials: true,
+      });
+      if (resp?.data?.success) {
+        setCompanyDetails((prev) => ({ ...prev, ...resp.data.data }));
+        toast.success("GSTIN details fetched. Please review before saving.");
+      } else {
+        toast.error(resp?.data?.message || "Failed to fetch GSTIN details");
+      }
+    } catch (err) {
+      toast.error(
+        err?.response?.data?.message || "Failed to fetch GSTIN details"
+      );
+    } finally {
+      setIsFetchingGstin(false);
+    }
+  };
+
+  const handleCompanyInputChange = (e) => {
+    const { name, value } = e.target;
+    setCompanyDetails((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleBankInputChange = (e) => {
+    const { name, value } = e.target;
+    const nextValue = name === "ifscCode" ? value.toUpperCase() : value;
+    setCompanyDetails((prev) => ({
+      ...prev,
+      bankDetails: { ...prev.bankDetails, [name]: nextValue },
+    }));
   };
 
   return (
@@ -367,6 +460,22 @@ const Signup = () => {
                 </label>
               </div>
 
+              {/* Add Company Details Button */}
+              <button
+                type="button"
+                className="btn w-100 mt-3"
+                style={{
+                  backgroundColor: "#ffffff",
+                  color: "#014937",
+                  fontWeight: "600",
+                  border: "1px solid #014937",
+                }}
+                onClick={handleOpenCompanyModal}
+              >
+                Add Company Details
+              </button>
+
+              {/* Create Account Button (after company details) */}
               <button
                 type="submit"
                 className="btn w-100 mt-3"
@@ -374,6 +483,24 @@ const Signup = () => {
                   backgroundColor: "#014937",
                   color: "white",
                   fontWeight: "600",
+                }}
+                onClick={(e) => {
+                  // Pre-check company details present before submit
+                  const { bankDetails, ...rest } = companyDetails || {};
+                  const hasCompanyFields = Object.values(rest).some(
+                    (v) => typeof v === "string" && v.trim() !== ""
+                  );
+                  const bd = bankDetails || {};
+                  const hasBankFields =
+                    (bd.bankName && bd.bankName.trim() !== "") ||
+                    (bd.accountNumber && bd.accountNumber.trim() !== "") ||
+                    (bd.branch && bd.branch.trim() !== "") ||
+                    (bd.ifscCode && bd.ifscCode.trim() !== "");
+                  if (!hasCompanyFields && !hasBankFields) {
+                    e.preventDefault();
+                    toast.error("Please add Company Details before creating account.");
+                    handleOpenCompanyModal();
+                  }
                 }}
               >
                 Create Account
@@ -406,6 +533,686 @@ const Signup = () => {
           </div>
         </div>
       </div>
+
+      {/* Company Details Modal */}
+      {showCompanyModal && (
+        <div className="modal fade show" style={{ display: "block" }}>
+          <div
+            className="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable"
+            role="document"
+          >
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Add Company Details</h5>
+              </div>
+              <div
+                className="modal-body"
+                style={{
+                  maxHeight: "70vh",
+                  overflowY: "auto",
+                  overflowX: "hidden",
+                }}
+              >
+                <ul className="nav nav-tabs mb-3">
+                  <li className="nav-item">
+                    <button
+                      type="button"
+                      className={`nav-link ${
+                        companyMode === "auto" ? "active" : ""
+                      }`}
+                      onClick={() => setCompanyMode("auto")}
+                    >
+                      Auto Fetch using GSTIN
+                    </button>
+                  </li>
+                  <li className="nav-item">
+                    <button
+                      type="button"
+                      className={`nav-link ${
+                        companyMode === "manual" ? "active" : ""
+                      }`}
+                      onClick={() => setCompanyMode("manual")}
+                    >
+                      Manual Entry
+                    </button>
+                  </li>
+                </ul>
+
+                {companyMode === "auto" ? (
+                  <div>
+                    <div className="row g-3 align-items-end">
+                      <div className="col-md-6">
+                        <label className="form-label">GSTIN</label>
+                        <input
+                          type="text"
+                          className="form-control"
+                          value={gstinInput}
+                          onChange={(e) =>
+                            setGstinInput(e.target.value.toUpperCase())
+                          }
+                          maxLength={15}
+                          placeholder="Enter 15-character GSTIN"
+                        />
+                      </div>
+                      <div className="col-md-3">
+                        <button
+                          type="button"
+                          className="login-button w-100"
+                          onClick={handleFetchGstin}
+                          disabled={isFetchingGstin}
+                        >
+                          {isFetchingGstin ? "Fetching..." : "Fetch"}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Editable autofill form */}
+                    <div className="row g-3 mt-3">
+                      <div className="col-md-6">
+                        <label className="form-label">Company Name</label>
+                        <input
+                          name="companyName"
+                          className="form-control"
+                          value={companyDetails.companyName}
+                          onChange={handleCompanyInputChange}
+                        />
+                      </div>
+                      <div className="col-md-6">
+                        <label className="form-label">Authorised Person</label>
+                        <input
+                          name="authorisedPerson"
+                          className="form-control"
+                          value={companyDetails.authorisedPerson}
+                          onChange={handleCompanyInputChange}
+                        />
+                      </div>
+                      <div className="col-md-6">
+                        <label className="form-label">
+                          Address 1 (Print Head 1)
+                        </label>
+                        <input
+                          name="address1"
+                          className="form-control"
+                          value={companyDetails.address1}
+                          onChange={handleCompanyInputChange}
+                        />
+                      </div>
+                      <div className="col-md-6">
+                        <label className="form-label">
+                          Address 2 (Print Head 2)
+                        </label>
+                        <input
+                          name="address2"
+                          className="form-control"
+                          value={companyDetails.address2}
+                          onChange={handleCompanyInputChange}
+                        />
+                      </div>
+                      <div className="col-md-3">
+                        <label className="form-label">City</label>
+                        <input
+                          name="city"
+                          className="form-control"
+                          value={companyDetails.city}
+                          onChange={handleCompanyInputChange}
+                        />
+                      </div>
+                      <div className="col-md-3">
+                        <label className="form-label">Pincode</label>
+                        <input
+                          name="pincode"
+                          className="form-control"
+                          value={companyDetails.pincode}
+                          onChange={handleCompanyInputChange}
+                        />
+                      </div>
+                      <div className="col-md-3">
+                        <label className="form-label">District</label>
+                        <input
+                          name="district"
+                          className="form-control"
+                          value={companyDetails.district}
+                          onChange={handleCompanyInputChange}
+                        />
+                      </div>
+                      <div className="col-md-3">
+                        <label className="form-label">State</label>
+                        <input
+                          name="state"
+                          className="form-control"
+                          value={companyDetails.state}
+                          onChange={handleCompanyInputChange}
+                        />
+                      </div>
+                      <div className="col-md-6">
+                        <label className="form-label">
+                          Registered Address 1
+                        </label>
+                        <input
+                          name="registeredAddress1"
+                          className="form-control"
+                          value={companyDetails.registeredAddress1}
+                          onChange={handleCompanyInputChange}
+                        />
+                      </div>
+                      <div className="col-md-6">
+                        <label className="form-label">
+                          Registered Address 2
+                        </label>
+                        <input
+                          name="registeredAddress2"
+                          className="form-control"
+                          value={companyDetails.registeredAddress2}
+                          onChange={handleCompanyInputChange}
+                        />
+                      </div>
+                      <div className="col-md-4">
+                        <label className="form-label">Phone</label>
+                        <input
+                          name="phone"
+                          className="form-control"
+                          value={companyDetails.phone}
+                          onChange={handleCompanyInputChange}
+                        />
+                      </div>
+                      <div className="col-md-4">
+                        <label className="form-label">Email</label>
+                        <input
+                          name="email"
+                          className="form-control"
+                          value={companyDetails.email}
+                          onChange={handleCompanyInputChange}
+                        />
+                      </div>
+                      <div className="col-md-4">
+                        <label className="form-label">Website</label>
+                        <input
+                          name="website"
+                          className="form-control"
+                          value={companyDetails.website}
+                          onChange={handleCompanyInputChange}
+                        />
+                      </div>
+                      <div className="col-md-6">
+                        <label className="form-label">GSTIN</label>
+                        <input
+                          name="gstin"
+                          className="form-control"
+                          value={companyDetails.gstin}
+                          onChange={handleCompanyInputChange}
+                          maxLength={15}
+                        />
+                      </div>
+                      <div className="col-md-6">
+                        <label className="form-label">PAN</label>
+                        <input
+                          name="pan"
+                          className="form-control"
+                          value={companyDetails.pan}
+                          onChange={handleCompanyInputChange}
+                          maxLength={10}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Bank Details Section */}
+                    <div className="mt-4">
+                      <h6 className="mb-3">Bank Details</h6>
+                      <div className="row g-3">
+                        <div className="col-md-6">
+                          <label className="form-label">IFSC Code</label>
+                          <div className="d-flex">
+                            <div className="input-group">
+                              <input
+                                name="ifscCode"
+                                className="form-control"
+                                value={companyDetails.bankDetails.ifscCode}
+                                onChange={handleBankInputChange}
+                                placeholder="Enter 11-character IFSC"
+                                maxLength={11}
+                              />
+                              <button
+                                type="button"
+                                className="login-button"
+                                onClick={async () => {
+                                  const code = (
+                                    companyDetails.bankDetails.ifscCode || ""
+                                  )
+                                    .toUpperCase()
+                                    .trim();
+                                  if (!code || !isValidIFSC.test(code)) {
+                                    toast.error(
+                                      "Enter a valid IFSC (11 alphanumeric characters)."
+                                    );
+                                    return;
+                                  }
+                                  try {
+                                    const resp = await axios.get(
+                                      `${BANK_URL}/by-ifsc/${code}`
+                                    );
+                                    if (resp?.data?.success) {
+                                      const { bankName, branch, city } =
+                                        resp.data.data || {};
+                                      setCompanyDetails((prev) => {
+                                        const combinedBranch = branch
+                                          ? city && !branch.includes(city)
+                                            ? `${branch}, ${city}`
+                                            : branch
+                                          : prev.bankDetails.branch;
+                                        return {
+                                          ...prev,
+                                          bankDetails: {
+                                            ...prev.bankDetails,
+                                            bankName:
+                                              bankName ||
+                                              prev.bankDetails.bankName,
+                                            branch: combinedBranch,
+                                          },
+                                        };
+                                      });
+                                      toast.success("Bank details fetched.");
+                                    } else {
+                                      toast.error(
+                                        resp?.data?.message ||
+                                          "Failed to fetch bank info."
+                                      );
+                                    }
+                                  } catch (err) {
+                                    toast.error(
+                                      err?.response?.data?.message ||
+                                        "Failed to fetch bank info."
+                                    );
+                                  }
+                                }}
+                              >
+                                Fetch Bank Info
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="col-md-6">
+                          <label className="form-label">Bank Name</label>
+                          <input
+                            name="bankName"
+                            className="form-control"
+                            value={companyDetails.bankDetails.bankName}
+                            onChange={handleBankInputChange}
+                          />
+                        </div>
+                        <div className="col-md-6">
+                          <label className="form-label">Account Number</label>
+                          <input
+                            name="accountNumber"
+                            className="form-control"
+                            value={companyDetails.bankDetails.accountNumber}
+                            onChange={handleBankInputChange}
+                          />
+                        </div>
+                        <div className="col-md-6">
+                          <label className="form-label">Branch</label>
+                          <input
+                            name="branch"
+                            className="form-control"
+                            value={companyDetails.bankDetails.branch}
+                            onChange={handleBankInputChange}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="row g-3">
+                      <div className="col-md-6">
+                        <label className="form-label">Company Name</label>
+                        <input
+                          name="companyName"
+                          className="form-control"
+                          value={companyDetails.companyName}
+                          onChange={handleCompanyInputChange}
+                        />
+                      </div>
+                      <div className="col-md-6">
+                        <label className="form-label">Authorised Person</label>
+                        <input
+                          name="authorisedPerson"
+                          className="form-control"
+                          value={companyDetails.authorisedPerson}
+                          onChange={handleCompanyInputChange}
+                        />
+                      </div>
+                      <div className="col-md-6">
+                        <label className="form-label">
+                          Address 1 (Print Head 1)
+                        </label>
+                        <input
+                          name="address1"
+                          className="form-control"
+                          value={companyDetails.address1}
+                          onChange={handleCompanyInputChange}
+                        />
+                      </div>
+                      <div className="col-md-6">
+                        <label className="form-label">
+                          Address 2 (Print Head 2)
+                        </label>
+                        <input
+                          name="address2"
+                          className="form-control"
+                          value={companyDetails.address2}
+                          onChange={handleCompanyInputChange}
+                        />
+                      </div>
+                      <div className="col-md-6">
+                        <label className="form-label">
+                          Registered Address 1
+                        </label>
+                        <input
+                          name="registeredAddress1"
+                          className="form-control"
+                          value={companyDetails.registeredAddress1}
+                          onChange={handleCompanyInputChange}
+                        />
+                      </div>
+                      <div className="col-md-6">
+                        <label className="form-label">
+                          Registered Address 2
+                        </label>
+                        <input
+                          name="registeredAddress2"
+                          className="form-control"
+                          value={companyDetails.registeredAddress2}
+                          onChange={handleCompanyInputChange}
+                        />
+                      </div>
+                      <div className="col-md-3">
+                        <label className="form-label">City</label>
+                        <input
+                          name="city"
+                          className="form-control"
+                          value={companyDetails.city}
+                          onChange={handleCompanyInputChange}
+                        />
+                      </div>
+                      <div className="col-md-3">
+                        <label className="form-label">Pincode</label>
+                        <input
+                          name="pincode"
+                          className="form-control"
+                          value={companyDetails.pincode}
+                          onChange={handleCompanyInputChange}
+                        />
+                      </div>
+                      <div className="col-md-3">
+                        <label className="form-label">District</label>
+                        <input
+                          name="district"
+                          className="form-control"
+                          value={companyDetails.district}
+                          onChange={handleCompanyInputChange}
+                        />
+                      </div>
+                      <div className="col-md-3">
+                        <label className="form-label">State</label>
+                        <input
+                          name="state"
+                          className="form-control"
+                          value={companyDetails.state}
+                          onChange={handleCompanyInputChange}
+                        />
+                      </div>
+                      <div className="col-md-4">
+                        <label className="form-label">Phone</label>
+                        <input
+                          name="phone"
+                          className="form-control"
+                          value={companyDetails.phone}
+                          onChange={handleCompanyInputChange}
+                        />
+                      </div>
+                      <div className="col-md-4">
+                        <label className="form-label">Email</label>
+                        <input
+                          name="email"
+                          className="form-control"
+                          value={companyDetails.email}
+                          onChange={handleCompanyInputChange}
+                        />
+                      </div>
+                      <div className="col-md-4">
+                        <label className="form-label">Website</label>
+                        <input
+                          name="website"
+                          className="form-control"
+                          value={companyDetails.website}
+                          onChange={handleCompanyInputChange}
+                        />
+                      </div>
+                      <div className="col-md-6">
+                        <label className="form-label">GSTIN</label>
+                        <input
+                          name="gstin"
+                          className="form-control"
+                          value={companyDetails.gstin}
+                          onChange={handleCompanyInputChange}
+                          maxLength={15}
+                        />
+                      </div>
+                      <div className="col-md-6">
+                        <label className="form-label">PAN</label>
+                        <input
+                          name="pan"
+                          className="form-control"
+                          value={companyDetails.pan}
+                          onChange={handleCompanyInputChange}
+                          maxLength={10}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Bank Details Section */}
+                    <div className="mt-4">
+                      <h6 className="mb-3">Bank Details</h6>
+                      {/* IFSC fetch row (styled like GSTIN) */}
+                      <div className="row g-3 align-items-end">
+                        <div className="col-md-6">
+                          <label className="form-label">IFSC Code</label>
+                          <input
+                            name="ifscCode"
+                            className="form-control"
+                            value={companyDetails.bankDetails.ifscCode}
+                            onChange={handleBankInputChange}
+                            placeholder="Enter 11-character IFSC"
+                            maxLength={11}
+                          />
+                        </div>
+                        <div className="col-md-3">
+                          <button
+                            type="button"
+                            className="login-button w-100"
+                            onClick={async () => {
+                              const code = (
+                                companyDetails.bankDetails.ifscCode || ""
+                              )
+                                .toUpperCase()
+                                .trim();
+                              if (!code || !isValidIFSC.test(code)) {
+                                toast.error(
+                                  "Enter a valid IFSC (11 alphanumeric characters)."
+                                );
+                                return;
+                              }
+                              try {
+                                const resp = await axios.get(
+                                  `${BANK_URL}/by-ifsc/${code}`
+                                );
+                                if (resp?.data?.success) {
+                                  const { bankName, branch, city } =
+                                    resp.data.data || {};
+                                  setCompanyDetails((prev) => {
+                                    const combinedBranch = branch
+                                      ? city && !branch.includes(city)
+                                        ? `${branch}, ${city}`
+                                        : branch
+                                      : prev.bankDetails.branch;
+                                    return {
+                                      ...prev,
+                                      bankDetails: {
+                                        ...prev.bankDetails,
+                                        bankName:
+                                          bankName || prev.bankDetails.bankName,
+                                        branch: combinedBranch,
+                                      },
+                                    };
+                                  });
+                                  toast.success("Bank details fetched.");
+                                } else {
+                                  toast.error(
+                                    resp?.data?.message ||
+                                      "Failed to fetch bank info."
+                                  );
+                                }
+                              } catch (err) {
+                                toast.error(
+                                  err?.response?.data?.message ||
+                                    "Failed to fetch bank info."
+                                );
+                              }
+                            }}
+                          >
+                            Fetch Bank Info
+                          </button>
+                        </div>
+                      </div>
+                      {/* Bank fields row */}
+                      <div className="row g-3 mt-2">
+                        <div className="col-md-4">
+                          <label className="form-label">Bank Name</label>
+                          <input
+                            name="bankName"
+                            className="form-control"
+                            value={companyDetails.bankDetails.bankName}
+                            onChange={handleBankInputChange}
+                          />
+                        </div>
+                        <div className="col-md-4">
+                          <label className="form-label">Account Number</label>
+                          <input
+                            name="accountNumber"
+                            className="form-control"
+                            value={companyDetails.bankDetails.accountNumber}
+                            onChange={handleBankInputChange}
+                          />
+                        </div>
+                        <div className="col-md-4">
+                          <label className="form-label">Branch</label>
+                          <input
+                            name="branch"
+                            className="form-control"
+                            value={companyDetails.bankDetails.branch}
+                            onChange={handleBankInputChange}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="post-button"
+                  onClick={handleCloseCompanyModal}
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  className="login-button"
+                  onClick={() => {
+                    // Validate key fields
+                    if (
+                      companyDetails.gstin &&
+                      !isValidGSTIN.test(companyDetails.gstin)
+                    ) {
+                      toast.error("GSTIN must be 15 alphanumeric characters.");
+                      return;
+                    }
+                    if (
+                      companyDetails.pan &&
+                      !isValidPAN.test(companyDetails.pan)
+                    ) {
+                      toast.error("PAN must be 10 alphanumeric characters.");
+                      return;
+                    }
+                    if (
+                      companyDetails.email &&
+                      !/^([^\s@]+)@([^\s@]+)\.[^\s@]+$/.test(
+                        companyDetails.email
+                      )
+                    ) {
+                      toast.error("Enter a valid email.");
+                      return;
+                    }
+                    if (
+                      companyDetails.pincode &&
+                      !isValidPincode.test(companyDetails.pincode)
+                    ) {
+                      toast.error("Pincode must be 6 digits.");
+                      return;
+                    }
+                    if (
+                      companyDetails.phone &&
+                      !isValidPhone.test(companyDetails.phone)
+                    ) {
+                      toast.error("Phone must be 10 digits.");
+                      return;
+                    }
+                    // Optional Bank Details Validation
+                    const bd = companyDetails.bankDetails || {};
+                    const anyBankProvided =
+                      (bd.bankName && bd.bankName.trim() !== "") ||
+                      (bd.accountNumber && bd.accountNumber.trim() !== "") ||
+                      (bd.branch && bd.branch.trim() !== "") ||
+                      (bd.ifscCode && bd.ifscCode.trim() !== "");
+
+                    if (anyBankProvided) {
+                      if (!bd.bankName) {
+                        toast.error("Bank Name is required.");
+                        return;
+                      }
+                      if (
+                        !bd.accountNumber ||
+                        !isValidAccountNumber.test(bd.accountNumber)
+                      ) {
+                        toast.error("Account Number must be 9-18 digits.");
+                        return;
+                      }
+                      if (!bd.branch) {
+                        toast.error("Branch is required.");
+                        return;
+                      }
+                      if (
+                        !bd.ifscCode ||
+                        !isValidIFSC.test(bd.ifscCode.toUpperCase())
+                      ) {
+                        toast.error("Invalid IFSC Code (e.g., SBIN0001234).");
+                        return;
+                      }
+                    }
+                    toast.success(
+                      "Company details saved. It will be submitted with signup."
+                    );
+                    handleCloseCompanyModal();
+                  }}
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

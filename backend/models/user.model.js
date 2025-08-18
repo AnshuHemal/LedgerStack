@@ -27,6 +27,38 @@ const UserSchema = mongoose.Schema(
       type: Date,
       default: Date.now(),
     },
+
+    companyDetails: {
+      companyName: { type: String },
+      address1: { type: String },
+      address2: { type: String },
+      authorisedPerson: { type: String },
+      registeredAddress1: { type: String },
+      registeredAddress2: { type: String },
+      city: { type: String },
+      pincode: { type: String },
+      district: { type: String },
+      state: { type: String },
+      phone: { type: String },
+      email: { type: String },
+      website: { type: String },
+      gstin: { type: String },
+      pan: { type: String },
+      bankDetails: {
+        bankName: { type: String, required: true },
+        accountNumber: {
+          type: String,
+          required: true,
+          match: /^[0-9]{9,18}$/,
+        },
+        branch: { type: String, required: true },
+        ifscCode: {
+          type: String,
+          required: true,
+          match: /^[A-Z]{4}0[A-Z0-9]{6}$/,
+        },
+      },
+    },
   },
   {
     timestamps: true,

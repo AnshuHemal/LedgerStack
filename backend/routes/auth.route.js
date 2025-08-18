@@ -9,7 +9,7 @@ const router = express.Router();
 
 // Signup Route
 router.post("/signup", async (req, res) => {
-  const { fullname, email, password } = req.body;
+  const { fullname, email, password, companyDetails } = req.body;
 
   try {
     const userAlreadyExists = await User.findOne({ email });
@@ -25,6 +25,7 @@ router.post("/signup", async (req, res) => {
       password: hashedPassword,
       name: fullname,
       isverified: false,
+      ...(companyDetails ? { companyDetails } : {}),
     });
 
     generateTokenAndSetCookie(res, user._id);
