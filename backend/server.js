@@ -24,10 +24,6 @@ import { dirname } from "path";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// const PDFDocument = require("pdfkit");
-// const fs = require("fs");
-// const path = require("path");
-
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 const app = express();
@@ -62,18 +58,15 @@ app.post("/generate-pdf", (req, res) => {
 
   const doc = new PDFDocument();
 
-  // Use __dirname to resolve file path
   const filePath = path.join(__dirname, "invoice.pdf");
   doc.pipe(fs.createWriteStream(filePath));
 
-  // Add content to the PDF
   doc.fontSize(20).text(header, { align: "center" });
   doc.fontSize(12).text(content, { align: "left" });
   doc.fontSize(10).text(footer, { align: "center" });
 
   doc.end();
 
-  // Send the file to the client
   doc.on("finish", () => {
     res.download(filePath, "invoice.pdf", (err) => {
       if (err) {
@@ -81,7 +74,6 @@ app.post("/generate-pdf", (req, res) => {
         res.status(500).send("Error downloading the PDF.");
       }
 
-      // Delete the PDF file after sending
       fs.unlink(filePath, (err) => {
         if (err) console.error("Error deleting the file", err);
       });

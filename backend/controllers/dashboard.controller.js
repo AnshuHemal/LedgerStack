@@ -3,7 +3,6 @@ import Order from "../models/order.model.js";
 import Sku from "../models/sku.model.js";
 import Subpart from "../models/subpart.model.js";
 
-// Get dashboard summary counts
 export const getDashboardSummary = async (req, res) => {
   try {
     const [

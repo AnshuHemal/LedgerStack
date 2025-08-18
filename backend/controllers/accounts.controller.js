@@ -1,6 +1,5 @@
 import { AccountGroup, AccountMaster } from "../models/user.model.js";
 
-// Add Account Group
 export const addAccountGroup = async (req, res) => {
   try {
     const { name, effect } = req.body;
@@ -27,7 +26,6 @@ export const addAccountGroup = async (req, res) => {
   }
 };
 
-// Get All Account Groups
 export const getAccountGroup = async (req, res) => {
   const createdBy = req.user.userId;
   try {
@@ -38,7 +36,6 @@ export const getAccountGroup = async (req, res) => {
   }
 };
 
-// Get Account Group by ID
 export const getAccountGroupById = async (req, res) => {
   const groupId = req.params.id;
   try {
@@ -52,7 +49,6 @@ export const getAccountGroupById = async (req, res) => {
   }
 };
 
-// Update Account Group by Id
 export const updateAccountGroup = async (req, res) => {
   const { name, effect } = req.body;
   const groupId = req.params.id;
@@ -73,7 +69,6 @@ export const updateAccountGroup = async (req, res) => {
   }
 };
 
-// Delete Account Group by ID
 export const deleteAccountGroup = async (req, res) => {
   const groupId = req.params.id;
 
@@ -88,7 +83,6 @@ export const deleteAccountGroup = async (req, res) => {
   }
 };
 
-// Add Account Master
 export const addAccountMaster = async (req, res) => {
   const createdBy = req.user.userId;
   try {
@@ -109,7 +103,6 @@ export const addAccountMaster = async (req, res) => {
   }
 };
 
-// Get All Account Masters
 export const getAccountMaster = async (req, res) => {
   const createdBy = req.user.userId;
   try {
@@ -124,7 +117,6 @@ export const getAccountMaster = async (req, res) => {
   }
 };
 
-// Get Account Master by ID
 export const getAccountMasterById = async (req, res) => {
   const accountId = req.params.id;
   try {
@@ -138,7 +130,6 @@ export const getAccountMasterById = async (req, res) => {
   }
 };
 
-// Update Account Master by Id
 export const updateAccountMaster = async (req, res) => {
   const accountId = req.params.id;
 
@@ -162,7 +153,6 @@ export const updateAccountMaster = async (req, res) => {
   }
 };
 
-// Delete Account Master by ID
 export const deleteAccountMaster = async (req, res) => {
   const accountId = req.params.id;
 
