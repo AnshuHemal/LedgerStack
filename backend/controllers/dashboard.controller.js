@@ -5,6 +5,12 @@ import Subpart from "../models/subpart.model.js";
 
 export const getDashboardSummary = async (req, res) => {
   try {
+    const userId = req.user?.userId;
+    const productFilter = userId ? { createdBy: userId } : {};
+    const subpartFilter = userId ? { createdBy: userId } : {};
+    const orderFilter = userId ? { createdBy: userId } : {};
+    const skuFilter = userId ? { createdBy: userId } : {};
+
     const [
       totalProducts,
       totalGroups,
@@ -12,11 +18,11 @@ export const getDashboardSummary = async (req, res) => {
       totalOrders,
       totalSkus
     ] = await Promise.all([
-      Product.countDocuments(),
-      Product.distinct("productGroupId").then(ids => ids.length),
-      Subpart.countDocuments(),
-      Order.countDocuments(),
-      Sku.countDocuments()
+      Product.countDocuments(productFilter),
+      Product.distinct("productGroupId", productFilter).then(ids => ids.length),
+      Subpart.countDocuments(subpartFilter),
+      Order.countDocuments(orderFilter),
+      Sku.countDocuments(skuFilter)
     ]);
 
     res.status(200).json({
@@ -46,11 +52,13 @@ export const getOrdersStats = async (req, res) => {
     const startDate = new Date(currentYear, 0, 1); // January 1st of current year
     const endDate = new Date(currentYear, 11, 31, 23, 59, 59); // December 31st of current year
 
+    const userId = req.user?.userId;
     const ordersStats = await Order.aggregate([
       {
-        $match: {
-          createdAt: { $gte: startDate, $lte: endDate }
-        }
+        $match: Object.assign(
+          { createdAt: { $gte: startDate, $lte: endDate } },
+          userId ? { createdBy: new (await import('mongoose')).default.Types.ObjectId(userId) } : {}
+        )
       },
       {
         $group: {
@@ -94,7 +102,11 @@ export const getOrdersStats = async (req, res) => {
 // Get products distribution across groups
 export const getProductsDistribution = async (req, res) => {
   try {
+    const userId = req.user?.userId;
     const distribution = await Product.aggregate([
+      ...(userId
+        ? [{ $match: { createdBy: new (await import('mongoose')).default.Types.ObjectId(userId) } }]
+        : []),
       {
         $lookup: {
           from: "productgroups",
@@ -134,7 +146,8 @@ export const getProductsDistribution = async (req, res) => {
 // Get top 5 products by available quantity
 export const getTopProducts = async (req, res) => {
   try {
-    const products = await Product.find().populate("productGroupId categoryId productTypeId");
+    const userId = req.user?.userId;
+    const products = await Product.find(userId ? { createdBy: userId } : {}).populate("productGroupId categoryId productTypeId");
     
     const productsWithAvailability = [];
 
@@ -219,7 +232,8 @@ export const getTopProducts = async (req, res) => {
 // Get recent orders
 export const getRecentOrders = async (req, res) => {
   try {
-    const recentOrders = await Order.find()
+    const userId = req.user?.userId;
+    const recentOrders = await Order.find(userId ? { createdBy: userId } : {})
       .populate({
         path: "company",
         select: "companyName",
@@ -250,12 +264,16 @@ export const getProductsSalesPerMonth = async (req, res) => {
     const startDate = new Date(currentYear, 0, 1); // January 1st of current year
     const endDate = new Date(currentYear, 11, 31, 23, 59, 59); // December 31st of current year
 
+    const userId = req.user?.userId;
     const salesData = await Order.aggregate([
       {
-        $match: {
-          createdAt: { $gte: startDate, $lte: endDate },
-          status: { $in: ["confirmed", "in_production", "ready", "shipped", "delivered"] }
-        }
+        $match: Object.assign(
+          {
+            createdAt: { $gte: startDate, $lte: endDate },
+            status: { $in: ["confirmed", "in_production", "ready", "shipped", "delivered"] }
+          },
+          userId ? { createdBy: new (await import('mongoose')).default.Types.ObjectId(userId) } : {}
+        )
       },
       {
         $unwind: "$products"

@@ -1,5 +1,5 @@
 import express from "express";
-import { Otp, User } from "../models/user.model.js";
+import { Otp, User, AccountGroup, AccountMaster } from "../models/user.model.js";
 import bcrypt from "bcrypt";
 import { generateTokenAndSetCookie } from "../utils/generateTokenAndSetCookie.js";
 import jwt from "jsonwebtoken";
@@ -30,6 +30,36 @@ router.post("/signup", async (req, res) => {
 
     generateTokenAndSetCookie(res, user._id);
     await user.save();
+
+    // Seed default Account Groups (idempotent)
+    const defaultGroups = [
+      { name: "Bank Accounts", effect: "Balance Sheet" },
+      { name: "Sundry Debtors", effect: "Balance Sheet" },
+      { name: "Sundry Creditors", effect: "Balance Sheet" },
+      { name: "Expense Account", effect: "Profit & Loss Account" },
+    ];
+    for (const grp of defaultGroups) {
+      // Check per-user to avoid duplicates per user
+      const existing = await AccountGroup.findOne({ name: grp.name, createdBy: user._id });
+      if (!existing) {
+        await AccountGroup.create({ ...grp, createdBy: user._id });
+      }
+    }
+
+    // Create default Account under Bank Accounts if bankName is provided
+    const bankName = user?.companyDetails?.bankDetails?.bankName;
+    if (bankName && bankName.trim() !== "") {
+      const bankGroup = await AccountGroup.findOne({ name: "Bank Accounts", createdBy: user._id });
+      if (bankGroup?._id) {
+        await AccountMaster.create({
+          companyName: bankName,
+          accountGroup: bankGroup._id,
+          contactPerson: bankName,
+          openingBalance: 0,
+          createdBy: user._id,
+        });
+      }
+    }
 
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
     await Otp.create({ email, code: otpCode });
