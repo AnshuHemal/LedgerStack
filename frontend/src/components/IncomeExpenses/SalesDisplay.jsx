@@ -17,7 +17,7 @@ const SalesInvoicesDisplay = () => {
     cash_debit: "Debit Memo",
     bill_date: new Date().toISOString().split("T")[0],
     bill_no: { bill_prefix: "Invoice ", no: "" },
-    
+
     sales_account: "",
     po_no: "",
     lr_no: "",
@@ -155,16 +155,21 @@ const SalesInvoicesDisplay = () => {
           // If product has group info, set it
           return {
             ...prod,
-            productGroup: prod.product.productGroupId._id || prod.product.productGroupId,
+            productGroup:
+              prod.product.productGroupId._id || prod.product.productGroupId,
           };
         } else if (prod.product) {
           // Try to find the product and get its group
           try {
-            const productResponse = await axios.get(`${PRODUCT_URL}/${prod.product._id || prod.product}`);
+            const productResponse = await axios.get(
+              `${PRODUCT_URL}/${prod.product._id || prod.product}`
+            );
             if (productResponse.data && productResponse.data.productGroupId) {
               return {
                 ...prod,
-                productGroup: productResponse.data.productGroupId._id || productResponse.data.productGroupId,
+                productGroup:
+                  productResponse.data.productGroupId._id ||
+                  productResponse.data.productGroupId,
               };
             }
           } catch (error) {
@@ -187,7 +192,9 @@ const SalesInvoicesDisplay = () => {
     setShowModal(true);
 
     // Fetch products for all product groups in the invoice
-    const uniqueGroups = [...new Set(processedProducts.map(p => p.productGroup).filter(Boolean))];
+    const uniqueGroups = [
+      ...new Set(processedProducts.map((p) => p.productGroup).filter(Boolean)),
+    ];
     if (uniqueGroups.length > 0) {
       // Fetch products for the first group to populate the dropdown
       await fetchProductsByGroup(uniqueGroups[0]);
@@ -219,7 +226,7 @@ const SalesInvoicesDisplay = () => {
 
   const handleEdit = async (e) => {
     if (e) e.preventDefault();
-    
+
     formData.freight_amount = parseFloat(formData.freight_amount);
     formData.bill_no.no = parseInt(formData.bill_no.no);
     let final_amount = 0;
@@ -261,7 +268,7 @@ const SalesInvoicesDisplay = () => {
       formData.bill_no.bill_prefix + "" + formData.bill_no.no;
     formData.trans_date = new Date(formData.trans_date).toLocaleDateString();
     formData.bill_date = new Date(formData.bill_date).toLocaleDateString();
-    
+
     try {
       await axios.put(`${API_URL}/sales-invoice/${selectedInvoiceId}`, {
         salesInvoiceDetails: formData,
@@ -293,30 +300,24 @@ const SalesInvoicesDisplay = () => {
     try {
       // First save the invoice
       const saveSuccess = await handleEdit();
-      
-      // Then generate and download the PDF only if save was successful
+
+      // Then request backend to generate & store PDF and open its URL
       if (saveSuccess && formData) {
         try {
-          // Prepare data for PDF generation with full product details
-          const pdfData = {
-            ...formData,
-            products: formData.products.map(product => {
-              if (product.product && typeof product.product === 'string') {
-                // Find the full product object from the products array
-                const fullProduct = products.find(p => p._id === product.product);
-                return {
-                  ...product,
-                  product: fullProduct || product.product
-                };
-              }
-              return product;
-            })
-          };
-          
-          generateInvoicePDF(pdfData);
-          toast.success("Invoice saved and PDF generated successfully!");
+          const resp = await axios.get(
+            `http://localhost:5000/api/pdf/generate/${selectedInvoiceId}`,
+            {
+              withCredentials: true,
+            }
+          );
+          if (resp?.data?.success && resp?.data?.url) {
+            window.open(resp.data.url, "_blank");
+            toast.success("Invoice saved and PDF ready!");
+          } else {
+            throw new Error("Invalid response from server");
+          }
         } catch (error) {
-          console.error('Error generating PDF:', error);
+          console.error("Error generating PDF URL:", error);
           toast.error("Invoice saved but PDF generation failed");
         }
       }
@@ -342,12 +343,12 @@ const SalesInvoicesDisplay = () => {
         cgst: null,
         sgst: null,
       };
-      
+
       // Fetch products for the selected group
       if (value) {
         fetchProductsByGroup(value);
       }
-      
+
       setFormData((prev) => ({
         ...prev,
         products: updatedProducts,
@@ -435,6 +436,31 @@ const SalesInvoicesDisplay = () => {
         [name]: value,
       },
     }));
+  };
+
+  const handleCopyDeliveryFromCompany = () => {
+    try {
+      const company = formData.sales_account || {};
+      const updatedParty = {
+        gst: company.gstin || "",
+        panNo: company.panNo || "",
+        name: company.companyName || "",
+        addressLine1: company.addressLine1 || "",
+        addressLine2: company.addressLine2 || "",
+        addressLine3: company.addressLine3 || "",
+        city: company.city || "",
+        state: company.state || "",
+        pinCode: company.pinCode || "",
+        mobileNo: company.mobileNo || "",
+      };
+      setFormData((prev) => ({
+        ...prev,
+        delivery_party_account: updatedParty,
+      }));
+      toast.success("Delivery Party set from Company Details");
+    } catch (err) {
+      toast.error("Failed to copy company details");
+    }
   };
 
   const handleConfirmDeliveryParty = () => {};
@@ -550,7 +576,6 @@ const SalesInvoicesDisplay = () => {
                     />
                   </div>
                 </div>
-                
               </div>
 
               <div className="row mt-3">
@@ -678,8 +703,8 @@ const SalesInvoicesDisplay = () => {
                                 (p) =>
                                   !formData.products.some(
                                     (fp, i) =>
-                                      (fp.product?._id || fp.product) === p._id &&
-                                      i !== idx
+                                      (fp.product?._id || fp.product) ===
+                                        p._id && i !== idx
                                   )
                               )
                               .map((p) => (
@@ -980,21 +1005,26 @@ const SalesInvoicesDisplay = () => {
                       // Generate PDF without saving
                       const pdfData = {
                         ...formData,
-                        products: formData.products.map(product => {
-                          if (product.product && typeof product.product === 'string') {
-                            const fullProduct = products.find(p => p._id === product.product);
+                        products: formData.products.map((product) => {
+                          if (
+                            product.product &&
+                            typeof product.product === "string"
+                          ) {
+                            const fullProduct = products.find(
+                              (p) => p._id === product.product
+                            );
                             return {
                               ...product,
-                              product: fullProduct || product.product
+                              product: fullProduct || product.product,
                             };
                           }
                           return product;
-                        })
+                        }),
                       };
                       generateInvoicePDF(pdfData);
                       toast.success("PDF generated successfully!");
                     } catch (error) {
-                      console.error('Error generating PDF:', error);
+                      console.error("Error generating PDF:", error);
                       toast.error("Failed to generate PDF");
                     }
                   }}
@@ -1044,6 +1074,14 @@ const SalesInvoicesDisplay = () => {
               </h5>
             </div>
             <div className="modal-body">
+              <button
+                type="button"
+                className="post-button"
+                onClick={handleCopyDeliveryFromCompany}
+                title="Copy company account details to Delivery Party"
+              >
+                Same as Company Details
+              </button>
               <div className="row">
                 <div className="col-md-6">
                   <label htmlFor="name" className="form-label">

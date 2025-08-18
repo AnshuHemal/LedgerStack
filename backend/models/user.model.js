@@ -394,6 +394,10 @@ const SalesInvoiceSchema = mongoose.Schema(
     remarks: {
       type: String,
     },
+    pdf_url: {
+      type: String,
+      default: "",
+    },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -608,6 +612,10 @@ const PurchaseInvoiceSchema = mongoose.Schema(
     },
     remarks: {
       type: String,
+    },
+    pdf_url: {
+      type: String,
+      default: "",
     },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
