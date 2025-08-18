@@ -31,14 +31,15 @@ const ProductsOverview = ({ handleLinkClick }) => {
     hsn_sac_code: "",
     sale_rate: 0.0,
     purchase_rate: 0.0,
+    piecesPerBox: "",
     unit: "",
     gst: "",
-    gst_type: "",
   });
   const [productGroups, setProductGroups] = useState([]);
   const [categories, setCategories] = useState([]);
   const [types, setTypes] = useState([]);
   const [error, setError] = useState("");
+  const [hsnError, setHsnError] = useState("");
   const navigate = useNavigate();
   const API_URL = import.meta.env.VITE_PRODUCT_URL;
 
@@ -116,6 +117,13 @@ const ProductsOverview = ({ handleLinkClick }) => {
   };
 
   const handleAddProduct = async () => {
+    // Validate HSN/SAC code
+    if (productsFormData.hsn_sac_code && !/^[0-9]{6,8}$/.test(productsFormData.hsn_sac_code)) {
+      setHsnError("HSN/SAC Code must be 6-8 digits");
+      return;
+    }
+    setHsnError("");
+
     try {
       await axios.post(`${API_URL}/`, productsFormData);
       toast.success("Product added successfully");
@@ -127,9 +135,9 @@ const ProductsOverview = ({ handleLinkClick }) => {
         hsn_sac_code: "",
         sale_rate: "",
         purchase_rate: "",
+        piecesPerBox: "",
         unit: "",
         gst: "",
-        gst_type: "",
       });
       setShowProductsModal(false);
       fetchData();
@@ -393,27 +401,11 @@ const ProductsOverview = ({ handleLinkClick }) => {
                       const value = e.target.value;
                       if (/^\d{0,8}$/.test(value)) {
                         handleProductChange(e);
+                        setHsnError("");
                       }
                     }}
                   />
-                </div>
-                <div className="col-lg-4">
-                  <label htmlFor="name" className="form-label">
-                    GST Type
-                  </label>
-                  <select
-                    className="select-dropdown"
-                    name="gst_type"
-                    value={productsFormData.gst_type}
-                    onChange={handleProductChange}
-                  >
-                    <option value="" disabled>
-                      Select Product Type
-                    </option>
-                    <option value="IGST">IGST</option>
-                    <option value="CGST">CGST</option>
-                    <option value="SGST">SGST</option>
-                  </select>
+                  {hsnError && <div className="text-danger small mt-1">{hsnError}</div>}
                 </div>
                 <div className="col-lg-4">
                   <label htmlFor="name" className="form-label">
@@ -434,6 +426,21 @@ const ProductsOverview = ({ handleLinkClick }) => {
                         handleProductChange(e);
                       }
                     }}
+                  />
+                </div>
+                <div className="col-lg-4">
+                  <label htmlFor="piecesPerBox" className="form-label">
+                    Pieces per Box
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    className="form-control"
+                    id="piecesPerBox"
+                    name="piecesPerBox"
+                    value={productsFormData.piecesPerBox}
+                    onChange={handleProductChange}
+                    required
                   />
                 </div>
               </div>
@@ -524,6 +531,7 @@ const ProductsOverview = ({ handleLinkClick }) => {
                     hsn_sac_code: "",
                     sale_rate: 0.0,
                     purchase_rate: 0.0,
+                    piecesPerBox: "",
                     unit: "",
                   });
                 }}

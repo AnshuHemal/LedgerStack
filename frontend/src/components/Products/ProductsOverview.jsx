@@ -158,6 +158,7 @@ const ProductsOverview = () => {
         "Category",
         "Type",
         "Available Quantity",
+        "Boxes (Filled - Remaining)",
         "Subparts Required",
       ],
       ...filteredProducts.map((product) => [
@@ -166,6 +167,9 @@ const ProductsOverview = () => {
         product.categoryId?.name || "",
         product.productTypeId?.name || "",
         product.availableQuantity,
+        product.piecesPerBox && product.piecesPerBox > 0 
+          ? `${product.boxes || 0} - ${product.remainingPieces || 0}`
+          : `${product.availableQuantity || 0}`,
         product.subpartsRequired
           ?.map(
             (part) =>
@@ -466,6 +470,16 @@ const ProductsOverview = () => {
                   color: "#121212",
                 }}
               >
+                Boxes
+              </th>
+              <th
+                style={{
+                  padding: "12px",
+                  textAlign: "left",
+                  fontWeight: "600",
+                  color: "#121212",
+                }}
+              >
                 Subparts Required
               </th>
             </tr>
@@ -474,7 +488,7 @@ const ProductsOverview = () => {
             {filteredProducts.length === 0 ? (
               <tr>
                 <td
-                  colSpan="6"
+                  colSpan="7"
                   style={{ textAlign: "center", padding: "40px" }}
                 >
                   <p style={{ color: "#6c757d", margin: 0 }}>
@@ -534,6 +548,22 @@ const ProductsOverview = () => {
                       }}
                     >
                       {product.availableQuantity}
+                    </span>
+                  </td>
+                  <td style={{ padding: "12px" }}>
+                    <span
+                      style={{
+                        color: "#121212",
+                        padding: "4px 8px",
+                        borderRadius: "4px",
+                        fontSize: "16px",
+                        fontWeight: "500",
+                      }}
+                    >
+                      {product.piecesPerBox && product.piecesPerBox > 0 
+                        ? `${product.boxes || 0} - ${product.remainingPieces || 0} pieces remains`
+                        : `${product.availableQuantity || 0}`
+                      }
                     </span>
                   </td>
                   <td style={{ padding: "12px" }}>

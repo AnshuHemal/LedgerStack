@@ -255,6 +255,25 @@ const ProductionUnitOverview = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validate required fields
+    if (!formData.product) {
+      toast.error("Please select a product");
+      return;
+    }
+
+    if (!formData.part) {
+      toast.error("Please select a part");
+      return;
+    }
+
+    // Validate quantity
+    const quantity = parseInt(formData.quantity);
+    if (!quantity || quantity <= 0) {
+      toast.error("Quantity must be a positive number");
+      return;
+    }
+
     try {
       setLoading(true);
 
@@ -280,12 +299,13 @@ const ProductionUnitOverview = () => {
         product: formData.product,
         part: partSubpartId,
         selectedPartIndex,
-        quantity: parseInt(formData.quantity),
+        quantity: quantity,
         date: formData.date,
       };
 
+      let response;
       if (isEditMode) {
-        await axios.put(
+        response = await axios.put(
           `${PRODUCTION_UNIT_URL}/${selectedUnit._id}`,
           productionUnitData,
           {
@@ -294,10 +314,25 @@ const ProductionUnitOverview = () => {
         );
         toast.success("Production unit updated successfully!");
       } else {
-        await axios.post(`${PRODUCTION_UNIT_URL}`, productionUnitData, {
+        response = await axios.post(`${PRODUCTION_UNIT_URL}`, productionUnitData, {
           withCredentials: true,
         });
-        toast.success("Production unit created successfully!");
+        // Use the message from the backend response
+        toast.success(response.data.message || "Production unit created successfully!");
+      }
+
+      // Handle warehouse response
+      if (response.data.warehouse) {
+        const warehouseResult = response.data.warehouse;
+        if (warehouseResult.success) {
+          if (warehouseResult.isNew) {
+            toast.success("New unallocated warehouse entry created");
+          } else {
+            toast.success("Quantity updated in warehouse");
+          }
+        } else {
+          toast.error(`Warehouse update failed: ${warehouseResult.message}`);
+        }
       }
 
       setShowModal(false);

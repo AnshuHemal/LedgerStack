@@ -15,14 +15,15 @@ const ProductsDisplay = () => {
     hsn_sac_code: "",
     sale_rate: 0.0,
     purchase_rate: 0.0,
+    piecesPerBox: "",
     unit: "",
     gst: "",
-    gst_type: "",
   });
   const [productGroups, setProductGroups] = useState([]);
   const [categories, setCategories] = useState([]);
   const [types, setTypes] = useState([]);
   const [selectedProductId, setSelectedProductId] = useState(null);
+  const [hsnError, setHsnError] = useState("");
 
   const API_URL = import.meta.env.VITE_PRODUCT_URL;
 
@@ -67,7 +68,9 @@ const ProductsDisplay = () => {
       hsn_sac_code: product.hsn_sac_code,
       sale_rate: product.sale_rate,
       purchase_rate: product.purchase_rate,
+      piecesPerBox: product.piecesPerBox,
       unit: product.unit,
+      gst: product.gst,
     });
     setSelectedProductId(product._id);
     setShowModal(true);
@@ -81,6 +84,13 @@ const ProductsDisplay = () => {
   };
 
   const handleSave = async () => {
+    // Validate HSN/SAC code
+    if (productsFormData.hsn_sac_code && !/^[0-9]{6,8}$/.test(productsFormData.hsn_sac_code)) {
+      setHsnError("HSN/SAC Code must be 6-8 digits");
+      return;
+    }
+    setHsnError("");
+
     try {
       const res = await axios.put(
         `${API_URL}/${selectedProductId}`,
@@ -117,6 +127,7 @@ const ProductsDisplay = () => {
               <th>Product</th>
               <th>Sale Rate</th>
               <th>Purchase Rate</th>
+              <th>Pieces per Box</th>
               <th>Group</th>
               <th>Category</th>
               <th>Type</th>
@@ -128,6 +139,7 @@ const ProductsDisplay = () => {
                 <td>{prod.name}</td>
                 <td>{prod.sale_rate}</td>
                 <td>{prod.purchase_rate}</td>
+                <td>{prod.piecesPerBox || "-"}</td>
                 <td>{prod.productGroupId?.name || "-"}</td>
                 <td>{prod.categoryId?.name || "-"}</td>
                 <td>{prod.productTypeId?.name || "-"}</td>
@@ -223,27 +235,11 @@ const ProductsDisplay = () => {
                       onChange={(e) => {
                         if (/^\d{0,8}$/.test(e.target.value)) {
                           handleProductChange(e);
+                          setHsnError("");
                         }
                       }}
                     />
-                  </div>
-                  <div className="col-lg-4">
-                    <label htmlFor="name" className="form-label">
-                      GST Type
-                    </label>
-                    <select
-                      className="select-dropdown"
-                      name="gst_type"
-                      value={productsFormData.gst_type}
-                      onChange={handleProductChange}
-                    >
-                      <option value="" disabled>
-                        Select Product Type
-                      </option>
-                      <option value="IGST">IGST</option>
-                      <option value="CGST">CGST</option>
-                      <option value="SGST">SGST</option>
-                    </select>
+                    {hsnError && <div className="text-danger small mt-1">{hsnError}</div>}
                   </div>
                   <div className="col-lg-4">
                     <label className="form-label">GST (in %)</label>
@@ -262,6 +258,17 @@ const ProductsDisplay = () => {
                           handleProductChange(e);
                         }
                       }}
+                    />
+                  </div>
+                  <div className="col-lg-4">
+                    <label className="form-label">Pieces per Box</label>
+                    <input
+                      type="number"
+                      min="1"
+                      className="form-control"
+                      name="piecesPerBox"
+                      value={productsFormData.piecesPerBox}
+                      onChange={handleProductChange}
                     />
                   </div>
                 </div>

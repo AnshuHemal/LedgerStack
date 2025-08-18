@@ -389,9 +389,15 @@ export const getProductsAvailability = async (req, res) => {
 
       if (!subpart || !subpart.parts || subpart.parts.length === 0) {
         // No subparts defined, availability is 0
+        const piecesPerBox = product.piecesPerBox || 0;
+        const boxes = piecesPerBox > 0 ? Math.floor(0 / piecesPerBox) : 0;
+        const remainingPieces = piecesPerBox > 0 ? 0 % piecesPerBox : 0;
+        
         productsWithAvailability.push({
           ...product.toObject(),
           availableQuantity: 0,
+          boxes,
+          remainingPieces,
           subpartsRequired: []
         });
         continue;
@@ -450,9 +456,16 @@ export const getProductsAvailability = async (req, res) => {
         part.remainingQuantity = remainingQuantity;
       }
 
+      // Calculate boxes and remaining pieces
+      const piecesPerBox = product.piecesPerBox || 0;
+      const boxes = piecesPerBox > 0 ? Math.floor(minAvailableQuantity / piecesPerBox) : 0;
+      const remainingPieces = piecesPerBox > 0 ? minAvailableQuantity % piecesPerBox : minAvailableQuantity;
+
       productsWithAvailability.push({
         ...product.toObject(),
         availableQuantity: minAvailableQuantity,
+        boxes,
+        remainingPieces,
         subpartsRequired
       });
     }

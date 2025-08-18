@@ -2,6 +2,199 @@ import ProductionUnit from "../models/productionUnit.model.js";
 import Unit from "../models/unit.model.js";
 import { Product, ProductGroup } from "../models/user.model.js";
 import Subpart from "../models/subpart.model.js";
+import Sku from "../models/sku.model.js";
+
+// Helper function to update or create SKU entry for warehouse management
+const updateWarehouseSku = async (
+  productId,
+  groupId,
+  partId,
+  partName,
+  color,
+  quantity,
+  userId
+) => {
+  try {
+    // Find existing SKU with this product and part combination
+    const existingSku = await Sku.findOne({
+      createdBy: userId,
+      products: {
+        $elemMatch: {
+          productId: productId,
+          parts: {
+            $elemMatch: {
+              subpartId: partId,
+              partName: partName,
+              color: color,
+            },
+          },
+        },
+      },
+    });
+
+    if (existingSku) {
+      // Update existing SKU - increment quantity for the specific part
+      const updatedSku = await Sku.findOneAndUpdate(
+        {
+          _id: existingSku._id,
+          "products.productId": productId,
+          "products.parts.subpartId": partId,
+          "products.parts.partName": partName,
+          "products.parts.color": color,
+        },
+        {
+          $inc: { "products.$[product].parts.$[part].quantity": quantity },
+        },
+        {
+          arrayFilters: [
+            { "product.productId": productId },
+            { "part.subpartId": partId, "part.partName": partName, "part.color": color },
+          ],
+          new: true
+        }
+      );
+
+      return {
+        success: true,
+        isNew: false,
+        message: "Quantity updated in warehouse",
+        sku: updatedSku
+      };
+    } else {
+      // Try to reuse an existing "Unallocated" SKU for this user and group
+      let unallocatedSku = await Sku.findOne({
+        createdBy: userId,
+        location: "Unallocated",
+        group: groupId,
+      });
+
+      if (!unallocatedSku) {
+        // Create new SKU entry with "Unallocated" location
+        try {
+          unallocatedSku = await Sku.create({
+            location: "Unallocated",
+            group: groupId,
+            products: [
+              {
+                productId: productId,
+                parts: [
+                  {
+                    subpartId: partId,
+                    partName: partName,
+                    quantity: quantity,
+                    color: color,
+                  },
+                ],
+              },
+            ],
+            unit: "pieces",
+            createdBy: userId,
+          });
+        } catch (err) {
+          // Handle duplicate Unallocated location (global unique). Fallback to user-specific label
+          if (err.code === 11000) {
+            unallocatedSku = await Sku.create({
+              location: `Unallocated-${String(userId).slice(-6)}`,
+              group: groupId,
+              products: [
+                {
+                  productId: productId,
+                  parts: [
+                    {
+                      subpartId: partId,
+                      partName: partName,
+                      quantity: quantity,
+                      color: color,
+                    },
+                  ],
+                },
+              ],
+              unit: "pieces",
+              createdBy: userId,
+            });
+          } else {
+            throw err;
+          }
+        }
+
+        return {
+          success: true,
+          isNew: true,
+          message: "New unallocated warehouse entry created",
+          sku: unallocatedSku,
+        };
+      }
+
+      // We have an Unallocated SKU. Check if product exists in it
+      const productExists = unallocatedSku.products?.some(
+        (p) => String(p.productId) === String(productId)
+      );
+
+      if (productExists) {
+        // Push new part under the existing product
+        const updatedSku = await Sku.findOneAndUpdate(
+          { _id: unallocatedSku._id },
+          {
+            $push: {
+              "products.$[product].parts": {
+                subpartId: partId,
+                partName: partName,
+                quantity: quantity,
+                color: color,
+              },
+            },
+          },
+          {
+            arrayFilters: [{ "product.productId": productId }],
+            new: true,
+          }
+        );
+
+        return {
+          success: true,
+          isNew: true,
+          message: "New unallocated warehouse entry created",
+          sku: updatedSku,
+        };
+      } else {
+        // Push a new product with the part
+        const updatedSku = await Sku.findOneAndUpdate(
+          { _id: unallocatedSku._id },
+          {
+            $push: {
+              products: {
+                productId: productId,
+                parts: [
+                  {
+                    subpartId: partId,
+                    partName: partName,
+                    quantity: quantity,
+                    color: color,
+                  },
+                ],
+              },
+            },
+          },
+          { new: true }
+        );
+
+        return {
+          success: true,
+          isNew: true,
+          message: "New unallocated warehouse entry created",
+          sku: updatedSku,
+        };
+      }
+    }
+  } catch (error) {
+    console.error("Error updating warehouse SKU:", error);
+    return {
+      success: false,
+      message: "Failed to update warehouse",
+      error: error.message
+    };
+  }
+};
 
 // Get all production units
 export const getProductionUnits = async (req, res) => {
@@ -10,7 +203,7 @@ export const getProductionUnits = async (req, res) => {
       .populate("productGroup", "name")
       .populate("product", "name")
       .populate("part", "parts")
-      .sort({ createdAt: -1 });
+      .sort({ date: -1 });
 
     res.status(200).json({
       success: true,
@@ -81,19 +274,63 @@ export const createProductionUnit = async (req, res) => {
       });
     }
 
-    const productionUnit = new ProductionUnit({
+    // Check if a production unit already exists for the same date, unit, product, and part
+    const existingProductionUnit = await ProductionUnit.findOne({
       unitName,
       productGroup,
       product,
-      productType: productDetails.productTypeId?.name || "",
-      category: productDetails.categoryId?.name || "",
       part,
-      selectedPartIndex: selectedPartIndex || 0,
-      quantity,
       date: date || new Date(),
     });
 
-    const savedProductionUnit = await productionUnit.save();
+    let savedProductionUnit;
+    let isUpdate = false;
+
+    if (existingProductionUnit) {
+      // Update existing production unit by adding the new quantity
+      existingProductionUnit.quantity += parseInt(quantity);
+      savedProductionUnit = await existingProductionUnit.save();
+      isUpdate = true;
+    } else {
+      // Create new production unit
+      const productionUnit = new ProductionUnit({
+        unitName,
+        productGroup,
+        product,
+        productType: productDetails.productTypeId?.name || "",
+        category: productDetails.categoryId?.name || "",
+        part,
+        selectedPartIndex: selectedPartIndex || 0,
+        quantity,
+        date: date || new Date(),
+      });
+
+      savedProductionUnit = await productionUnit.save();
+    }
+
+    // Update warehouse SKU (use provided selectedPartIndex instead of splitting)
+    const subpartId = part;
+    const partIndex = Number.isInteger(selectedPartIndex)
+      ? selectedPartIndex
+      : parseInt(selectedPartIndex || 0);
+    const subpartDetails = await Subpart.findById(subpartId);
+    let partName = "Unknown Part";
+    let color = "Default";
+    
+    if (subpartDetails && subpartDetails.parts && subpartDetails.parts[partIndex]) {
+      partName = subpartDetails.parts[partIndex].partName;
+      color = subpartDetails.parts[partIndex].color || "Default";
+    }
+
+    const warehouseResult = await updateWarehouseSku(
+      product,
+      productGroup,
+      subpartId,
+      partName,
+      color,
+      quantity,
+      req.user.userId
+    );
 
     // Populate the saved production unit
     const populatedProductionUnit = await ProductionUnit.findById(savedProductionUnit._id)
@@ -103,8 +340,10 @@ export const createProductionUnit = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: "Production unit created successfully",
+      message: isUpdate ? "Production unit quantity updated successfully" : "Production unit created successfully",
       data: populatedProductionUnit,
+      warehouse: warehouseResult,
+      isUpdate: isUpdate
     });
   } catch (error) {
     console.error("Error creating production unit:", error);
@@ -167,10 +406,35 @@ export const updateProductionUnit = async (req, res) => {
       });
     }
 
+    // Update warehouse SKU for the updated production unit
+    const subpartId = part;
+    const partIndex = Number.isInteger(selectedPartIndex)
+      ? selectedPartIndex
+      : parseInt(selectedPartIndex || 0);
+    const subpartDetails = await Subpart.findById(subpartId);
+    let partName = "Unknown Part";
+    let color = "Default";
+    
+    if (subpartDetails && subpartDetails.parts && subpartDetails.parts[partIndex]) {
+      partName = subpartDetails.parts[partIndex].partName;
+      color = subpartDetails.parts[partIndex].color || "Default";
+    }
+
+    const warehouseResult = await updateWarehouseSku(
+      product,
+      productGroup,
+      subpartId,
+      partName,
+      color,
+      quantity,
+      req.user.userId
+    );
+
     res.status(200).json({
       success: true,
       message: "Production unit updated successfully",
       data: updatedProductionUnit,
+      warehouse: warehouseResult
     });
   } catch (error) {
     console.error("Error updating production unit:", error);

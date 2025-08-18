@@ -85,8 +85,9 @@ const ProductSchema = mongoose.Schema(
       required: true,
     },
     hsn_sac_code: {
-      type: Number,
-      default: "None",
+      type: String,
+      required: true,
+      match: /^[0-9]{6,8}$/
     },
     sale_rate: {
       type: Number,
@@ -96,11 +97,11 @@ const ProductSchema = mongoose.Schema(
       type: Number,
       default: 0.0,
     },
-    unit: {
-      type: String,
+    piecesPerBox: {
+      type: Number,
       required: true,
     },
-    gst_type: {
+    unit: {
       type: String,
       required: true,
     },
