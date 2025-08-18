@@ -34,7 +34,6 @@ export const createSku = async (req, res) => {
           }
         }
         skuData.skuCode = `SKU-${nextNumber.toString().padStart(6, "0")}`;
-        console.log(`Controller generated SKU code: ${skuData.skuCode}`);
       } catch (error) {
         console.error("Controller error generating SKU code:", error);
         // Fallback: generate a timestamp-based code

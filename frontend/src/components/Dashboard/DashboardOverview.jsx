@@ -104,24 +104,6 @@ const DashboardOverview = () => {
         productsSalesPerMonth: productsSalesPerMonthRes.data.data,
       });
       
-      // Debug: Log the recent orders data structure
-      console.log("Recent Orders Data:", recentOrdersRes.data.data);
-      if (recentOrdersRes.data.data[0]) {
-        console.log("Sample Order Structure:", recentOrdersRes.data.data[0]);
-        console.log("Sample Order Products:", recentOrdersRes.data.data[0].products);
-        console.log("Sample Order Company:", recentOrdersRes.data.data[0].company);
-        
-        // Log detailed product information
-        if (recentOrdersRes.data.data[0].products && recentOrdersRes.data.data[0].products.length > 0) {
-          console.log("Sample Product Details:", {
-            productId: recentOrdersRes.data.data[0].products[0].productId,
-            productName: recentOrdersRes.data.data[0].products[0].productName,
-            boxes: recentOrdersRes.data.data[0].products[0].boxes,
-            type: typeof recentOrdersRes.data.data[0].products[0].productId
-          });
-        }
-      }
-      
       setLastUpdated(new Date());
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
@@ -1025,9 +1007,6 @@ const DashboardOverview = () => {
                         }
                         // Check if company has _id but no name (populated but missing name)
                         if (order.company && typeof order.company === 'object' && order.company._id) {
-                          console.log("Company object:", order.company);
-                          console.log("Company object keys:", Object.keys(order.company));
-                          // Try to get company name from different possible fields
                           if (order.company.companyName) {
                             return order.company.companyName;
                           }

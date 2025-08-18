@@ -254,7 +254,6 @@ const OrdersOverview = () => {
 
   const handleDoubleClick = async (order) => {
     try {
-      console.log("Loading order for editing:", order);
       setSelectedOrder(order);
       setIsEditMode(true);
       

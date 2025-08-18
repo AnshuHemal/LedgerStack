@@ -352,7 +352,6 @@ const ProductionUnitOverview = () => {
 
   const handleDoubleClick = async (unit) => {
     try {
-      console.log("Loading production unit for editing:", unit);
       setSelectedUnit(unit);
       setIsEditMode(true);
       

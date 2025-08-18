@@ -324,7 +324,6 @@ const SubpartsOverview = () => {
 
   const handleDoubleClick = async (subpart) => {
     try {
-      console.log("Loading subpart for editing:", subpart);
       setSelectedSubpart(subpart);
       setIsEditMode(true);
       

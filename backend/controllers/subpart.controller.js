@@ -4,7 +4,6 @@ import { Product } from "../models/user.model.js";
 // Create Subpart
 export const createSubpart = async (req, res) => {
   try {
-    console.log("Creating subpart with data:", req.body);
     
     // Validate that parts array is not empty and has valid data
     if (!req.body.parts || !Array.isArray(req.body.parts) || req.body.parts.length === 0) {
@@ -32,12 +31,9 @@ export const createSubpart = async (req, res) => {
       ...req.body,
       createdBy: req.user.userId,
     };
-    console.log("Final subpart data:", subpartData);
 
     const newSubpart = new Subpart(subpartData);
-    console.log("Subpart instance before save:", newSubpart);
     await newSubpart.save();
-    console.log("Subpart saved successfully:", newSubpart);
 
     // Populate product for response
     await newSubpart.populate({

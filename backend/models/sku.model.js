@@ -88,7 +88,6 @@ SkuSchema.pre("save", async function (next) {
       }
       
       this.skuCode = `SKU-${nextNumber.toString().padStart(6, "0")}`;
-      console.log(`Generated SKU code: ${this.skuCode}`);
     } catch (error) {
       console.error("Error generating SKU code:", error);
       // Fallback: generate a timestamp-based code

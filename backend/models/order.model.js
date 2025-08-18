@@ -102,14 +102,12 @@ OrderSchema.pre("save", function (next) {
 // Also add a pre-validate hook as backup
 OrderSchema.pre("validate", function (next) {
   if (this.isNew && !this.orderNumber) {
-    console.log("Pre-validate hook: orderNumber is missing, will be generated in pre-save");
   }
   next();
 });
 
 // Add a post-save hook to verify the orderNumber was set
 OrderSchema.post("save", function (doc) {
-  console.log("Post-save hook: Order saved with orderNumber:", doc.orderNumber);
 });
 
 // Check if model already exists to avoid compilation issues

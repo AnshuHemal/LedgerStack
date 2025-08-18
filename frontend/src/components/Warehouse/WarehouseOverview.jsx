@@ -224,7 +224,6 @@ const WarehouseOverview = () => {
 
   const handleDoubleClick = async (sku) => {
     try {
-      console.log("Loading SKU for editing:", sku);
       setSelectedSku(sku);
       setIsEditMode(true);
 
@@ -239,7 +238,6 @@ const WarehouseOverview = () => {
       // Set selected products
       const skuProductIds = sku.products?.map((p) => p.productId._id) || [];
       setSelectedProducts(skuProductIds);
-      console.log("Selected products:", skuProductIds);
 
       // Fetch products by group for dropdown
       if (sku.group?._id) {
@@ -252,12 +250,7 @@ const WarehouseOverview = () => {
       const subpartsData = {};
       for (const product of sku.products || []) {
         if (product.productId._id) {
-          console.log(
-            "Processing product:",
-            product.productId.name,
-            "with parts:",
-            product.parts
-          );
+         
           const response = await axios.get(
             `${SUBPARTS_URL}/product/${product.productId._id}`,
             {
@@ -274,13 +267,7 @@ const WarehouseOverview = () => {
                   (p) => p.partName === part.partName && p.color === part.color
                 );
 
-                console.log(
-                  `Part ${part.partName} (${
-                    part.color
-                  }): existing=${!!existingPart}, quantity=${
-                    existingPart?.quantity || 0
-                  }`
-                );
+              
 
                 return {
                   ...part,
@@ -294,7 +281,6 @@ const WarehouseOverview = () => {
         }
       }
 
-      console.log("Final subparts data:", subpartsData);
       setProductSubparts(subpartsData);
 
       // Increment form key to force re-render

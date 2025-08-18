@@ -96,7 +96,6 @@ const Header1 = () => {
       navigate("/login");
       toast.success("Successfully Logged out!");
     } catch (error) {
-      console.log(error);
       toast.error("Error logging out");
     }
   };
@@ -313,7 +312,7 @@ const Header1 = () => {
                   width: 32,
                   borderRadius: "50%",
                   overflow: "hidden",
-                  backgroundColor: "#007bff",
+                  backgroundColor: "#014937",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
