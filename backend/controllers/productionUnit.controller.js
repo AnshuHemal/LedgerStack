@@ -199,7 +199,7 @@ const updateWarehouseSku = async (
 // Get all production units
 export const getProductionUnits = async (req, res) => {
   try {
-    const productionUnits = await ProductionUnit.find()
+    const productionUnits = await ProductionUnit.find({ createdBy: req.user.userId })
       .populate("productGroup", "name")
       .populate("product", "name")
       .populate("part", "parts")
@@ -222,7 +222,7 @@ export const getProductionUnits = async (req, res) => {
 // Get single production unit
 export const getProductionUnit = async (req, res) => {
   try {
-    const productionUnit = await ProductionUnit.findById(req.params.id)
+    const productionUnit = await ProductionUnit.findOne({ _id: req.params.id, createdBy: req.user.userId })
       .populate("productGroup", "name")
       .populate("product", "name")
       .populate("part", "parts");
@@ -281,6 +281,7 @@ export const createProductionUnit = async (req, res) => {
       product,
       part,
       date: date || new Date(),
+      createdBy: req.user.userId,
     });
 
     let savedProductionUnit;
@@ -303,6 +304,7 @@ export const createProductionUnit = async (req, res) => {
         selectedPartIndex: selectedPartIndex || 0,
         quantity,
         date: date || new Date(),
+        createdBy: req.user.userId,
       });
 
       savedProductionUnit = await productionUnit.save();
@@ -381,8 +383,8 @@ export const updateProductionUnit = async (req, res) => {
       });
     }
 
-    const updatedProductionUnit = await ProductionUnit.findByIdAndUpdate(
-      req.params.id,
+    const updatedProductionUnit = await ProductionUnit.findOneAndUpdate(
+      { _id: req.params.id, createdBy: req.user.userId },
       {
         unitName,
         productGroup,
@@ -449,7 +451,7 @@ export const updateProductionUnit = async (req, res) => {
 // Delete production unit
 export const deleteProductionUnit = async (req, res) => {
   try {
-    const productionUnit = await ProductionUnit.findByIdAndDelete(req.params.id);
+    const productionUnit = await ProductionUnit.findOneAndDelete({ _id: req.params.id, createdBy: req.user.userId });
 
     if (!productionUnit) {
       return res.status(404).json({
