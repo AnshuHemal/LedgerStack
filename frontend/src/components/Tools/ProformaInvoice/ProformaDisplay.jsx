@@ -99,7 +99,7 @@ const ProformaDisplay = () => {
       setInvoices(res.data.data);
     } catch (err) {
       console.error(err);
-      setError("Failed to fetch sales invoices");
+      setError("Failed to fetch proforma invoices");
     } finally {
       setLoading(false);
     }
@@ -280,36 +280,40 @@ const ProformaDisplay = () => {
     formData.total_products_amount = final_amount;
     formData.trans_doc_no =
       formData.bill_no.bill_prefix + "" + formData.bill_no.no;
-    formData.trans_date = new Date(formData.trans_date).toLocaleDateString();
-    formData.bill_date = new Date(formData.bill_date).toLocaleDateString();
+    formData.trans_date = formData.trans_date ? new Date(formData.trans_date) : null;
+    formData.bill_date = formData.bill_date ? new Date(formData.bill_date) : null;
     try {
-      await axios.put(`${API_URL}/proforma-invoice/${selectedInvoiceId}`, {
+      const updateResp = await axios.put(`${API_URL}/proforma-invoice/${selectedInvoiceId}`, {
         proformaInvoiceDetails: formData,
       });
       toast.success("Invoice updated!");
       fetchInvoices();
       if (closeModal) setShowModal(false);
-      return true;
+      const updatedId = updateResp?.data?.data?._id || selectedInvoiceId;
+      if (updatedId) setSelectedInvoiceId(updatedId);
+      return updatedId;
     } catch (err) {
       console.error(err);
       toast.error("Failed to update invoice" + err.message);
-      return false;
+      return null;
     }
   };
 
   const handleSaveAndPrint = async () => {
     try {
       setIsGeneratingPdf(true);
-      const saveSuccess = await handleEdit(undefined, { closeModal: false });
-      if (saveSuccess && formData) {
+      const updatedId = await handleEdit(undefined, { closeModal: false });
+      const targetId = updatedId || selectedInvoiceId;
+      if (targetId && formData) {
         try {
           const resp = await axios.get(
-            `http://localhost:5000/api/pdf/generate/${selectedInvoiceId}`,
+            `http://localhost:5000/api/pdf/generate/${targetId}?type=proforma`,
             { withCredentials: true }
           );
           if (resp?.data?.success && resp?.data?.url) {
             window.open(resp.data.url, "_blank");
             toast.success("Invoice saved and PDF ready!");
+            setShowModal(false);
           } else {
             throw new Error("Invalid response from server");
           }
@@ -562,7 +566,7 @@ const ProformaDisplay = () => {
           <div className="modal-content">
             <div className="modal-header">
               <h5 className="modal-title" id="exampleModalLabel">
-                Edit Sales Invoice
+                Edit Proforma Invoice
               </h5>
             </div>
             <div

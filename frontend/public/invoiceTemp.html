@@ -14,18 +14,18 @@
         margin: 0;
         padding: 16px;
         font-family: "Inter", Arial, sans-serif;
-        font-size: 12px;
+        font-size: 13px;
         color: #121212;
         background: #fff;
       }
 
       .a4 {
         width: 210mm;
-        height: 297mm; /* Fix height to A4 so bottom sections can stick */
+        height: 297mm;
         margin: 0 auto;
         border: 1px solid #121212;
         padding: 10px;
-        display: flex; /* Make page a flex column */
+        display: flex;
         flex-direction: column;
       }
 
@@ -241,15 +241,17 @@
   </head>
   <body>
     <div class="a4">
-      <div class="title-bar">
-        <div style="text-align: center">PROFORMA INVOICE</div>
+      <div class="title-bar" style="display: flex; justify-content: space-between; text-align: end;">
+        <div style="text-align: center; font-size: 14px; visibility: collapse;">ORIGINAL</div>
+        <div style="text-align: center; font-size: 14px">Proforma Invoice</div>
+        <!-- <div style="text-align: center; font-size: 14px">ORIGINAL</div> -->
       </div>
 
       <div class="header">
         <div class="logo-box">Logo</div>
         <div class="company-block">
           <div class="company-name">{{companyName}}</div>
-          <div class="company-address">{{companyAddress}}</div>
+          <div class="company-address" style="font-size: 11px;">{{companyAddress}}</div>
           <div class="company-address">Email : {{companyEmail}}</div>
           <div class="gst-pan-bar">
             <div>GSTIN No. : {{gstin}}</div>
@@ -265,7 +267,7 @@
             Reverse Charge : <strong>N/A</strong>
           </td>
           <td class="text-left" style="width: 25%">
-            Performa No. : <strong>{{invoiceNo}}</strong>
+            Proforma No. : <strong>{{invoiceNo}}</strong>
           </td>
           <td class="text-left" style="width: 20%">
             Ord No. : <strong>{{orderNo}}</strong>
@@ -275,14 +277,14 @@
           </td>
         </tr>
         <tr>
-          <td class="text-left">Performa Date : <strong>{{date}}</strong></td>
+          <td class="text-left">Proforma Date : <strong>{{date}}</strong></td>
           <td class="text-left">State : <strong>{{state}}</strong></td>
           <td class="text-left">State Code : <strong>{{stCode}}</strong></td>
           <td class="text-left">
             <div style="display: flex; justify-content: space-between">
-              <div>Lr. No: <strong>{{lrNo}}</strong></div>
+              <div>Lr. No: <br /><strong>{{lrNo}}</strong></div>
               <div>
-                Lr. Date:
+                Lr. Date: <br />
                 <strong>{{lrDate}}</strong>
               </div>
             </div>
@@ -341,7 +343,7 @@
             </tr>
             <tr class="no-border">
               <td class="no-border text-left">State Code:</td>
-              <td class="no-border text-left">{{consigneeStatecode}}</td>
+              <td class="no-border text-left" style="width: 50%">{{consigneeStatecode}}</td>
             </tr>
 
             <tr class="no-border">
@@ -426,41 +428,44 @@
               <td class="num no-border" style="width: 15%">
                 {{totalQuantity}}
               </td>
-              <td class="num no-border" style="width: 20%">{{subTotal}}</td>
+              <td class="num no-border" style="width: 20%; text-align: end;">{{subTotal}}</td>
             </tr>
 
             <tr>
               <td class="text-left no-border">Round Off</td>
               <td class="no-border"></td>
               <td class="no-border"></td>
-              <td class="num no-border">
-                {{roundOff}}
-              </td>
+              <td class="num no-border" style="width: 20%; text-align: end;">{{roundOff}}</td>
             </tr>
-            <tr>
+            <tr style="font-size: 14px;">
               <td class="text-left no-border">
                 <strong>Invoice Total</strong>
               </td>
               <td class="no-border"></td>
               <td class="no-border"></td>
-              <td class="num no-border"><strong>{{invoiceTotal}}</strong></td>
+              <td class="num no-border" style="text-align: end;"><strong>{{invoiceTotal}}</strong></td>
             </tr>
           </table>
 
-          <table style="border: 1px solid #121212; width: 70px; max-width: 70px; height: 100%;">
-            <tr style="object-fit:cover; width: 70px; height: 50px;">
-              <td class="text-left">
-                {{qrCode}}
-              </td>
+          <!-- <table
+            style="
+              border: 1px solid #121212;
+              width: 70px;
+              max-width: 70px;
+              height: 100%;
+            "
+          >
+            <tr style="object-fit: cover; width: 70px; height: 50px">
+              <td class="text-left">{{qrCode}}</td>
             </tr>
-          </table>
+          </table> -->
         </div>
       </div>
 
       <!-- Amount in words -->
       <div
         class="boxed mt-0"
-        style="border-top-width: 0px; border-bottom-width: 0px;"
+        style="border-top-width: 0px; border-bottom-width: 0px"
       >
         <div><strong>Invoice Value (In Words)</strong> : {{amountInWords}}</div>
       </div>
@@ -477,7 +482,7 @@
           <td>
             <div style="display: flex; justify-content: space-between">
               <div>Current Amt:</div>
-              <div>{{currentAmount}}</div>
+              <div>{{currentAmt}}</div>
             </div>
           </td>
           <td>
@@ -490,16 +495,19 @@
       </table>
 
       <!-- Terms & Signature -->
-      <div class="signature-wrap" style="border-top-width: 0px">
+      <div class="signature-wrap" style="border-top-width: 1px">
         <div class="terms">
           <strong>* TERMS & CONDITION</strong>
-          <div class="mt-2" style="font-size: 10px">
-            {{termsAndConditions}}
-          </div>
+          <div class="mt-2" style="font-size: 11px">{{termsAndConditions}}</div>
         </div>
-        <div class="sign-box" style="border-left-width: 0px">
+        <div
+          class="sign-box"
+          style="border-left-width: 0px; font-size: 14px; font-weight: 500"
+        >
           For, {{companyName}}<br /><br />
-          <div style="margin-top: 55px">Authorised Signatory</div>
+          <div style="margin-top: 55px; font-size: 12px">
+            Authorised Signatory
+          </div>
         </div>
       </div>
     </div>

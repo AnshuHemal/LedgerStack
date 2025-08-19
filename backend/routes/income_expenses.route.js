@@ -7,6 +7,7 @@ import {
   addPurchaseInvoice,
   addSalesInvoice,
   addTransportationDetails,
+  cleanupOrphanedValidations,
   deleteProformaInvoice,
   deletePurchaseInvoice,
   deleteSalesInvoice,
@@ -82,5 +83,6 @@ router.put("/sales-bill", updateSalesBill);
 
 router.post("/proforma-validation", protect, addProformaValidation);
 router.get("/proforma-validation", protect, getValidatedInvoices);
+router.post("/proforma-validation/cleanup", protect, cleanupOrphanedValidations);
 
 export default router;

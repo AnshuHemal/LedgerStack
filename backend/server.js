@@ -9,6 +9,7 @@ import accountRoutes from "./routes/account.route.js";
 import productRoutes from "./routes/product.route.js";
 import incomeExpensesRoutes from "./routes/income_expenses.route.js";
 import quickEntryRoutes from "./routes/quickentry.route.js";
+import outstandingRoutes from "./routes/outstanding.route.js";
 import ordersRoutes from "./routes/orders.route.js";
 import skuRoutes from "./routes/sku.route.js";
 import subpartRoutes from "./routes/subpart.route.js";
@@ -55,6 +56,7 @@ app.use("/api/account", accountRoutes);
 app.use("/api/product", productRoutes);
 app.use("/api/income-expenses", incomeExpensesRoutes);
 app.use("/api/quick-entry", quickEntryRoutes);
+app.use("/api/outstanding", outstandingRoutes);
 app.use("/api/orders", ordersRoutes);
 app.use("/api/warehouse", skuRoutes);
 app.use("/api/subparts", subpartRoutes);
@@ -66,6 +68,7 @@ app.use("/api/bank-details", bankRoutes);
 app.get("/api/pdf/generate/:entryId", async (req, res) => {
   try {
     const entryId = req.params.entryId;
+    const entryType = (req.query.type || "").toLowerCase();
     // Try to find invoice across collections by id and current user
     const token = req.cookies.access_token;
     let userId = null;
@@ -81,20 +84,30 @@ app.get("/api/pdf/generate/:entryId", async (req, res) => {
     const baseFilter = userId
       ? { _id: entryId, createdBy: userId }
       : { _id: entryId };
-    let entry = await SalesInvoice.findOne(baseFilter)
-      .populate("sales_account")
-      .populate("transportation_account")
-      .populate({ path: "products.product", populate: { path: "productGroupId" } });
-    if (!entry) {
-      entry = await PurchaseInvoice.findOne(baseFilter)
-        .populate("purchase_account")
-        .populate({ path: "products.product", populate: { path: "productGroupId" } });
-    }
-    if (!entry) {
-      entry = await ProformaInvoice.findOne(baseFilter)
+    let entry = null;
+    const populateSales = (q) =>
+      q
         .populate("sales_account")
         .populate("transportation_account")
         .populate({ path: "products.product", populate: { path: "productGroupId" } });
+    const populatePurchase = (q) =>
+      q.populate("purchase_account").populate({ path: "products.product", populate: { path: "productGroupId" } });
+
+    if (entryType === "sales") {
+      entry = await populateSales(SalesInvoice.findOne(baseFilter));
+    } else if (entryType === "purchase") {
+      entry = await populatePurchase(PurchaseInvoice.findOne(baseFilter));
+    } else if (entryType === "proforma") {
+      entry = await populateSales(ProformaInvoice.findOne(baseFilter));
+    } else {
+      // legacy: try in order sales -> purchase -> proforma
+      entry = await populateSales(SalesInvoice.findOne(baseFilter));
+      if (!entry) {
+        entry = await populatePurchase(PurchaseInvoice.findOne(baseFilter));
+      }
+      if (!entry) {
+        entry = await populateSales(ProformaInvoice.findOne(baseFilter));
+      }
     }
     if (!entry) {
       return res
@@ -375,7 +388,7 @@ app.get("/api/pdf/generate/:entryId", async (req, res) => {
       groupedRows += `
         <tr class="group-row" style="font-weight: 500;">
           <td class="num" style="width:12px">${sr++}.</td>
-          <td class="text-left" colspan="10"><strong>${groupName}</strong></td>
+          <td class="text-left" colspan="10" style="font-size: 14px; padding: 4px 4px; margin-start: 3px"><strong>${groupName}</strong></td>
         </tr>
       `;
       for (const prod of groupProducts) {
@@ -394,10 +407,10 @@ app.get("/api/pdf/generate/:entryId", async (req, res) => {
         const gstPct = igst > 0 ? igst : Number(cgst) + Number(sgst);
         const amount = base - discountAmt + ((base - discountAmt) * Number(gstPct)) / 100;
         groupedRows += `
-          <tr style="text-align:center">
+          <tr style="text-align:center; font-weight: 500;">
             <td class="num" style="width:12px"></td>
             <td class="text-left">
-              <strong style="margin:0;padding:0">${productName}</strong>
+              <strong style="margin:0;padding:2px 0px; margin-start: 8px; font-weight: 500;">${productName}</strong>
             </td>
             <td class="num">${hsn}</td>
             <td class="num">${boxes}</td>
@@ -436,6 +449,107 @@ app.get("/api/pdf/generate/:entryId", async (req, res) => {
     html = replace(html, "{{invoiceTotal}}", invoiceTotal.toFixed(2));
     html = replace(html, "{{amountInWords}}", numberToWords(invoiceTotal));
 
+    // Outstanding balance information for invoice entries
+    const lastBalance = Number(entry.lastBalance || 0);
+    const currentAmt = Number(entry.currentAmt || invoiceTotal);
+    const netBalance = Number(entry.netBalance || (lastBalance + currentAmt));
+    
+    html = replace(html, "{{lastBalance}}", lastBalance.toFixed(2));
+    html = replace(html, "{{currentAmt}}", currentAmt.toFixed(2));
+    html = replace(html, "{{netBalance}}", netBalance.toFixed(2));
+    
+    // Update the invoice with outstanding balance information
+    if (entry.constructor && entry.constructor.modelName === "SalesInvoice") {
+      await SalesInvoice.findByIdAndUpdate(entry._id, {
+        lastBalance,
+        currentAmt,
+        netBalance
+      });
+      
+      // Also create/update Outstanding Receivable entry
+      const { OutstandingReceivable } = await import("./models/user.model.js");
+      const lastReceivableEntry = await OutstandingReceivable.findOne(
+        { account: entry.sales_account, createdBy: entry.createdBy },
+        {},
+        { sort: { date: -1 } }
+      );
+      
+      // For Sales Invoice: Debit entry increases outstanding balance (money owed by customer)
+      const newReceivableEntry = new OutstandingReceivable({
+        account: entry.sales_account,
+        date: new Date(),
+        voucher_no: entry.bill_no?.no || entry.bill_no,
+        description: `Sales Invoice - ${entry.bill_no?.bill_prefix || ""}${entry.bill_no?.no || entry.bill_no}`,
+        debitAmount: invoiceTotal, // DEBIT entry (money owed)
+        creditAmount: 0,
+        balance: netBalance,
+        invoiceId: entry._id,
+        createdBy: entry.createdBy,
+      });
+      
+      await newReceivableEntry.save();
+      
+    } else if (entry.constructor && entry.constructor.modelName === "PurchaseInvoice") {
+      await PurchaseInvoice.findByIdAndUpdate(entry._id, {
+        lastBalance,
+        currentAmt,
+        netBalance
+      });
+      
+      // Also create/update Outstanding Payable entry
+      const { OutstandingPayable } = await import("./models/user.model.js");
+      const lastPayableEntry = await OutstandingPayable.findOne(
+        { account: entry.purchase_account, createdBy: entry.createdBy },
+        {},
+        { sort: { date: -1 } }
+      );
+      
+      // For Purchase Invoice: Credit entry increases outstanding balance (money owed to supplier)
+      const newPayableEntry = new OutstandingPayable({
+        account: entry.purchase_account,
+        date: new Date(),
+        voucher_no: entry.bill_no || entry.voucher_no,
+        description: `Purchase Invoice - ${entry.bill_no || entry.voucher_no}`,
+        debitAmount: 0,
+        creditAmount: invoiceTotal, // CREDIT entry (money owed to supplier)
+        balance: netBalance,
+        invoiceId: entry._id,
+        createdBy: entry.createdBy,
+      });
+      
+      await newPayableEntry.save();
+      
+    } else if (entry.constructor && entry.constructor.modelName === "ProformaInvoice") {
+      await ProformaInvoice.findByIdAndUpdate(entry._id, {
+        lastBalance,
+        currentAmt,
+        netBalance
+      });
+      
+      // Also create/update Outstanding Receivable entry for Proforma
+      const { OutstandingReceivable } = await import("./models/user.model.js");
+      const lastReceivableEntry = await OutstandingReceivable.findOne(
+        { account: entry.sales_account, createdBy: entry.createdBy },
+        {},
+        { sort: { date: -1 } }
+      );
+      
+      // For Proforma Invoice: Debit entry increases outstanding balance (money owed by customer)
+      const newReceivableEntry = new OutstandingReceivable({
+        account: entry.sales_account,
+        date: new Date(),
+        voucher_no: entry.bill_no?.no || entry.bill_no,
+        description: `Proforma Invoice - ${entry.bill_no?.bill_prefix || ""}${entry.bill_no?.no || entry.bill_no}`,
+        debitAmount: invoiceTotal, // DEBIT entry (money owed)
+        creditAmount: 0,
+        balance: netBalance,
+        invoiceId: entry._id,
+        createdBy: entry.createdBy,
+      });
+      
+      await newReceivableEntry.save();
+    }
+
     const browser = await puppeteer.launch({
       headless: true,
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
@@ -456,14 +570,17 @@ app.get("/api/pdf/generate/:entryId", async (req, res) => {
     // Store PDF directly in DB and return a streaming URL
     const fileName = `entry_${entryId}_${Date.now()}.pdf`;
     const binaryPdf = Buffer.isBuffer(pdfBuffer) ? pdfBuffer : Buffer.from(pdfBuffer);
-    const updates = { pdf_data: binaryPdf, pdf_mime: "application/pdf", pdf_filename: fileName };
-    let pdfStreamUrl = `http://localhost:${PORT}/api/pdf/${entryId}`;
+    const modelName = entry.constructor && entry.constructor.modelName;
+    const typeLower = modelName === "SalesInvoice" ? "sales" : modelName === "ProformaInvoice" ? "proforma" : modelName === "PurchaseInvoice" ? "purchase" : "";
+    const publicBase = process.env.PUBLIC_BASE_URL || `http://localhost:${PORT}`;
+    const pdfStreamUrl = `${publicBase}/api/pdf/${entry._id}${typeLower ? `?type=${typeLower}` : ""}`;
+    const updates = { pdf_data: binaryPdf, pdf_mime: "application/pdf", pdf_filename: fileName, pdf_url: pdfStreamUrl };
 
-    if (entry.constructor && entry.constructor.modelName === "SalesInvoice") {
+    if (modelName === "SalesInvoice") {
       await SalesInvoice.findByIdAndUpdate(entry._id, updates);
-    } else if (entry.constructor && entry.constructor.modelName === "PurchaseInvoice") {
+    } else if (modelName === "PurchaseInvoice") {
       await PurchaseInvoice.findByIdAndUpdate(entry._id, updates);
-    } else if (entry.constructor && entry.constructor.modelName === "ProformaInvoice") {
+    } else if (modelName === "ProformaInvoice") {
       await ProformaInvoice.findByIdAndUpdate(entry._id, updates);
     }
 
@@ -478,11 +595,21 @@ app.get("/api/pdf/generate/:entryId", async (req, res) => {
 app.get("/api/pdf/:entryId", async (req, res) => {
   try {
     const entryId = req.params.entryId;
+    const type = (req.query.type || "").toLowerCase();
     const { SalesInvoice, PurchaseInvoice, ProformaInvoice } = await import("./models/user.model.js");
-    const doc =
-      (await SalesInvoice.findById(entryId).select("pdf_data pdf_mime pdf_filename")) ||
-      (await PurchaseInvoice.findById(entryId).select("pdf_data pdf_mime pdf_filename")) ||
-      (await ProformaInvoice.findById(entryId).select("pdf_data pdf_mime pdf_filename"));
+    let doc = null;
+    if (type === "sales") {
+      doc = await SalesInvoice.findById(entryId).select("pdf_data pdf_mime pdf_filename");
+    } else if (type === "purchase") {
+      doc = await PurchaseInvoice.findById(entryId).select("pdf_data pdf_mime pdf_filename");
+    } else if (type === "proforma") {
+      doc = await ProformaInvoice.findById(entryId).select("pdf_data pdf_mime pdf_filename");
+    } else {
+      doc =
+        (await SalesInvoice.findById(entryId).select("pdf_data pdf_mime pdf_filename")) ||
+        (await PurchaseInvoice.findById(entryId).select("pdf_data pdf_mime pdf_filename")) ||
+        (await ProformaInvoice.findById(entryId).select("pdf_data pdf_mime pdf_filename"));
+    }
 
     if (!doc || !doc.pdf_data) {
       return res.status(404).json({ success: false, message: "PDF not found" });

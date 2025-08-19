@@ -59,6 +59,10 @@ const SalesInvoicesDisplay = () => {
     freight_amount: 0,
     final_amount: 0,
     remarks: "",
+    // Outstanding balance tracking for Slip Book entries
+    lastBalance: 0,
+    currentAmt: 0,
+    netBalance: 0,
   });
 
   axios.defaults.withCredentials = true;
@@ -117,6 +121,17 @@ const SalesInvoicesDisplay = () => {
     fetchInvoices();
     fetchData();
   }, []);
+
+  // Recalculate outstanding balance when final amount changes
+  useEffect(() => {
+    if (formData.lastBalance !== undefined && formData.final_amount !== undefined) {
+      setFormData(prev => ({
+        ...prev,
+        currentAmt: prev.final_amount,
+        netBalance: prev.lastBalance + prev.final_amount
+      }));
+    }
+  }, [formData.final_amount, formData.lastBalance]);
 
   useEffect(() => {
     const totalAmount = formData.products.reduce((sum, prod) => {
@@ -202,6 +217,36 @@ const SalesInvoicesDisplay = () => {
     }
   };
 
+  const fetchOutstandingBalance = async (accountId) => {
+    if (!accountId) return;
+    
+    try {
+      const res = await axios.get(`http://localhost:5000/api/outstanding/balance/${accountId}`, {
+        withCredentials: true,
+      });
+      
+      if (res.data.success) {
+        // For Sales Invoice, we use receivable balance
+        const lastBalance = res.data.data.receivableBalance || 0;
+        setFormData(prev => ({
+          ...prev,
+          lastBalance: lastBalance,
+          currentAmt: prev.final_amount || 0,
+          netBalance: lastBalance + (prev.final_amount || 0)
+        }));
+      }
+    } catch (error) {
+      console.error("Error fetching outstanding balance:", error);
+      // Set default values if fetch fails
+      setFormData(prev => ({
+        ...prev,
+        lastBalance: 0,
+        currentAmt: prev.final_amount || 0,
+        netBalance: prev.final_amount || 0
+      }));
+    }
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
 
@@ -220,6 +265,10 @@ const SalesInvoicesDisplay = () => {
           trans_doc_no: `${newBillNo.bill_prefix}${value}`,
         };
       });
+    } else if (name === "sales_account") {
+      // When sales account changes, fetch outstanding balance
+      setFormData((prev) => ({ ...prev, [name]: value }));
+      fetchOutstandingBalance(value);
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
     }
@@ -266,6 +315,15 @@ const SalesInvoicesDisplay = () => {
       prod.sgst !== null ? prod.sgst : 0;
     });
     formData.total_products_amount = final_amount;
+    
+    // Calculate outstanding balance for Sales Invoice entries
+    if (formData.cash_debit === "Debit Memo") {
+      // For Sales Invoice - track in Outstanding Receivable
+      formData.currentAmt = final_amount;
+      // Debit entry increases the balance (money owed by customer)
+      formData.netBalance = formData.lastBalance + formData.currentAmt;
+    }
+    
     formData.trans_doc_no =
       formData.bill_no.bill_prefix + "" + formData.bill_no.no;
     // Use actual Date objects to avoid locale parsing issues on server
@@ -273,17 +331,21 @@ const SalesInvoicesDisplay = () => {
     formData.bill_date = formData.bill_date ? new Date(formData.bill_date) : null;
 
     try {
-      await axios.put(`${API_URL}/sales-invoice/${selectedInvoiceId}`, {
-        salesInvoiceDetails: formData,
-      });
+      const updateResp = await axios.put(
+        `${API_URL}/sales-invoice/${selectedInvoiceId}`,
+        {
+          salesInvoiceDetails: formData,
+        }
+      );
       toast.success("Invoice updated!");
       fetchInvoices();
       if (closeModal) setShowModal(false);
-      return true; // Return success status
+      const updatedId = updateResp?.data?.data?._id || selectedInvoiceId;
+      return updatedId; // Return updated invoice id
     } catch (err) {
       console.error(err);
       toast.error("Failed to update invoice" + err.message);
-      return false; // Return failure status
+      return null; // Return failure status
     }
   };
 
@@ -303,16 +365,18 @@ const SalesInvoicesDisplay = () => {
     try {
       setIsGeneratingPdf(true);
       // First save the invoice without closing modal
-      const saveSuccess = await handleEdit(undefined, { closeModal: false });
-      if (saveSuccess && formData) {
+      const updatedId = await handleEdit(undefined, { closeModal: false });
+      const targetId = updatedId || selectedInvoiceId;
+      if (targetId && formData) {
         try {
           const resp = await axios.get(
-            `http://localhost:5000/api/pdf/generate/${selectedInvoiceId}`,
+            `http://localhost:5000/api/pdf/generate/${targetId}?type=sales`,
             { withCredentials: true }
           );
           if (resp?.data?.success && resp?.data?.url) {
             window.open(resp.data.url, "_blank");
             toast.success("Invoice saved and PDF ready!");
+            setShowModal(false);
           } else {
             throw new Error("Invalid response from server");
           }
@@ -960,6 +1024,39 @@ const SalesInvoicesDisplay = () => {
                       </td>
                       <td>{parseFloat(formData.final_amount).toFixed(2)}</td>
                     </tr>
+                    
+                    {/* Outstanding Balance Information for Sales Invoice */}
+                    <tr style={{ backgroundColor: '#f8f9fa' }}>
+                      <td colSpan="11">
+                        <div className="row">
+                          <div className="col-md-4">
+                            <div className="d-flex justify-content-between">
+                              <span className="fw-bold">Last Balance:</span>
+                              <span className="text-primary">₹{formData.lastBalance.toFixed(2)}</span>
+                            </div>
+                          </div>
+                          <div className="col-md-4">
+                            <div className="d-flex justify-content-between">
+                              <span className="fw-bold">Current Amt:</span>
+                              <span className="text-success">₹{formData.currentAmt.toFixed(2)}</span>
+                            </div>
+                          </div>
+                          <div className="col-md-4">
+                            <div className="d-flex justify-content-between">
+                              <span className="fw-bold">Net Balance:</span>
+                              <span className="text-info">₹{formData.netBalance.toFixed(2)}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="row mt-2">
+                          <div className="col-12">
+                            <small className="text-muted">
+                              <strong>Note:</strong> Debit entry increases outstanding balance (money owed by customer)
+                            </small>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
                   </tbody>
                 </table>
                 {isLastProductRowValid() && (
@@ -1007,40 +1104,7 @@ const SalesInvoicesDisplay = () => {
                 >
                   Cancel
                 </button>
-                <button
-                  type="button"
-                  className="post-button"
-                  onClick={() => {
-                    try {
-                      // Generate PDF without saving
-                      const pdfData = {
-                        ...formData,
-                        products: formData.products.map((product) => {
-                          if (
-                            product.product &&
-                            typeof product.product === "string"
-                          ) {
-                            const fullProduct = products.find(
-                              (p) => p._id === product.product
-                            );
-                            return {
-                              ...product,
-                              product: fullProduct || product.product,
-                            };
-                          }
-                          return product;
-                        }),
-                      };
-                      generateInvoicePDF(pdfData);
-                      toast.success("PDF generated successfully!");
-                    } catch (error) {
-                      console.error("Error generating PDF:", error);
-                      toast.error("Failed to generate PDF");
-                    }
-                  }}
-                >
-                  Generate PDF
-                </button>
+
                 <button
                   type="button"
                   className="login-button"

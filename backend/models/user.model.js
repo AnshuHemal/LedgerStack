@@ -425,6 +425,10 @@ const SalesInvoiceSchema = mongoose.Schema(
     pdf_data: { type: Buffer, select: false },
     pdf_mime: { type: String, default: "application/pdf", select: false },
     pdf_filename: { type: String, default: "" },
+    // Outstanding balance tracking for Slip Book entries
+    lastBalance: { type: Number, default: 0 },
+    currentAmt: { type: Number, default: 0 },
+    netBalance: { type: Number, default: 0 },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -568,6 +572,10 @@ const ProformaInvoiceSchema = mongoose.Schema(
     pdf_data: { type: Buffer, select: false },
     pdf_mime: { type: String, default: "application/pdf", select: false },
     pdf_filename: { type: String, default: "" },
+    // Outstanding balance tracking for Slip Book entries
+    lastBalance: { type: Number, default: 0 },
+    currentAmt: { type: Number, default: 0 },
+    netBalance: { type: Number, default: 0 },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -651,6 +659,10 @@ const PurchaseInvoiceSchema = mongoose.Schema(
     pdf_data: { type: Buffer, select: false },
     pdf_mime: { type: String, default: "application/pdf", select: false },
     pdf_filename: { type: String, default: "" },
+    // Outstanding balance tracking for Slip Book entries
+    lastBalance: { type: Number, default: 0 },
+    currentAmt: { type: Number, default: 0 },
+    netBalance: { type: Number, default: 0 },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -707,7 +719,61 @@ const QuickEntrySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+const OutstandingPayableSchema = new mongoose.Schema(
+  {
+    account: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "AccountMaster",
+      required: true,
+    },
+    date: { type: Date, required: true },
+    voucher_no: { type: String },
+    description: { type: String },
+    debitAmount: { type: Number, default: 0 },
+    creditAmount: { type: Number, default: 0 },
+    balance: { type: Number, required: true },
+    invoiceId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "PurchaseInvoice",
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+  },
+  { timestamps: true }
+);
+
+const OutstandingReceivableSchema = new mongoose.Schema(
+  {
+    account: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "AccountMaster",
+      required: true,
+    },
+    date: { type: Date, required: true },
+    voucher_no: { type: String },
+    description: { type: String },
+    debitAmount: { type: Number, default: 0 },
+    creditAmount: { type: Number, default: 0 },
+    balance: { type: Number, required: true },
+    invoiceId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "SalesInvoice",
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+  },
+  { timestamps: true }
+);
+
 export const QuickEntry = mongoose.model("QuickEntry", QuickEntrySchema);
+export const OutstandingPayable = mongoose.model("OutstandingPayable", OutstandingPayableSchema);
+export const OutstandingReceivable = mongoose.model("OutstandingReceivable", OutstandingReceivableSchema);
 export const AccountMaster = mongoose.model(
   "AccountMaster",
   AccountMasterSchema

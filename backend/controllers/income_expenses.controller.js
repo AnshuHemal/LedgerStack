@@ -297,13 +297,72 @@ export const getValidatedInvoices = async (req, res) => {
       .populate("proformaInvoiceId")
       .exec();
 
-    const validatedInvoiceIds = validatedInvoices.map(
-      (validation) => validation.proformaInvoiceId._id
-    );
+    // Filter out null references and add additional safety checks
+    const validatedInvoiceIds = validatedInvoices
+      .filter(validation => validation.proformaInvoiceId && validation.proformaInvoiceId._id)
+      .map(validation => validation.proformaInvoiceId._id);
+
+    // Log any orphaned validation records for debugging
+    const orphanedValidations = validatedInvoices.filter(validation => !validation.proformaInvoiceId);
+    if (orphanedValidations.length > 0) {
+      console.warn(`Found ${orphanedValidations.length} orphaned validation records (proformaInvoiceId is null)`);
+      console.warn('Orphaned validation IDs:', orphanedValidations.map(v => v._id));
+    }
+
+    console.log(`Found ${validatedInvoiceIds.length} valid proforma invoices out of ${validatedInvoices.length} total validations`);
+    
     res.status(200).json({ validatedInvoiceIds });
   } catch (error) {
     console.error("Error fetching validated invoices:", error);
     res.status(500).json({ error: "Failed to fetch validated invoices" });
+  }
+};
+
+// Function to clean up orphaned validation records
+export const cleanupOrphanedValidations = async (req, res) => {
+  try {
+    // Find all validation records
+    const allValidations = await ProformaValidation.find({});
+    
+    // Check which ones have valid proforma invoice references
+    const validValidations = [];
+    const orphanedValidations = [];
+    
+    for (const validation of allValidations) {
+      try {
+        const proformaInvoice = await ProformaInvoice.findById(validation.proformaInvoiceId);
+        if (proformaInvoice) {
+          validValidations.push(validation);
+        } else {
+          orphanedValidations.push(validation);
+        }
+      } catch (err) {
+        orphanedValidations.push(validation);
+      }
+    }
+    
+    if (orphanedValidations.length > 0) {
+      // Delete orphaned validation records
+      const orphanedIds = orphanedValidations.map(v => v._id);
+      await ProformaValidation.deleteMany({ _id: { $in: orphanedIds } });
+      
+      console.log(`Cleaned up ${orphanedValidations.length} orphaned validation records`);
+      
+      res.status(200).json({ 
+        success: true, 
+        message: `Cleaned up ${orphanedValidations.length} orphaned validation records`,
+        cleanedCount: orphanedValidations.length
+      });
+    } else {
+      res.status(200).json({ 
+        success: true, 
+        message: "No orphaned validation records found",
+        cleanedCount: 0
+      });
+    }
+  } catch (error) {
+    console.error("Error cleaning up orphaned validations:", error);
+    res.status(500).json({ error: "Failed to cleanup orphaned validations" });
   }
 };
 
@@ -345,7 +404,7 @@ export const getPurchaseInvoiceById = async (req, res) => {
       _id: id,
       createdBy: req.user.userId,
     })
-      .populate("sales_account")
+      .populate("purchase_account")
       .populate("createdBy")
       .populate("products.product");
 
@@ -365,11 +424,11 @@ export const getPurchaseInvoiceById = async (req, res) => {
 export const updatePurchaseInvoice = async (req, res) => {
   try {
     const { id } = req.params;
-    const { salesInvoiceDetails } = req.body;
+    const { purchaseInvoiceDetails } = req.body;
 
     const updatedInvoice = await PurchaseInvoice.findOneAndUpdate(
       { _id: id, createdBy: req.user.userId },
-      salesInvoiceDetails,
+      purchaseInvoiceDetails,
       { new: true }
     );
 
