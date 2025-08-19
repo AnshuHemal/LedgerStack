@@ -356,7 +356,7 @@ const Header1 = () => {
                 Your Profile
               </NavLink>
               <NavLink
-                to="/settings"
+                to="/preferences"
                 className="dropdown-item"
                 onClick={closeDropdown}
               >

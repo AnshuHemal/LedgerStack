@@ -4,6 +4,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import { connectDB } from "./db/connectDB.js";
 import authRoutes from "./routes/auth.route.js";
+import userRoutes from "./routes/user.route.js";
 import accountRoutes from "./routes/account.route.js";
 import productRoutes from "./routes/product.route.js";
 import incomeExpensesRoutes from "./routes/income_expenses.route.js";
@@ -49,6 +50,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, "../public")));
 
 app.use("/api/auth", authRoutes);
+app.use("/api/user", userRoutes);
 app.use("/api/account", accountRoutes);
 app.use("/api/product", productRoutes);
 app.use("/api/income-expenses", incomeExpensesRoutes);
@@ -73,7 +75,7 @@ app.get("/api/pdf/generate/:entryId", async (req, res) => {
       userId = decoded.userId;
     } catch {}
 
-    const { SalesInvoice, PurchaseInvoice, Transportation, AccountMaster } = await import(
+    const { SalesInvoice, PurchaseInvoice, ProformaInvoice, Transportation, AccountMaster, User } = await import(
       "./models/user.model.js"
     );
     const baseFilter = userId
@@ -82,11 +84,17 @@ app.get("/api/pdf/generate/:entryId", async (req, res) => {
     let entry = await SalesInvoice.findOne(baseFilter)
       .populate("sales_account")
       .populate("transportation_account")
-      .populate("products.product");
+      .populate({ path: "products.product", populate: { path: "productGroupId" } });
     if (!entry) {
       entry = await PurchaseInvoice.findOne(baseFilter)
         .populate("purchase_account")
-        .populate("products.product");
+        .populate({ path: "products.product", populate: { path: "productGroupId" } });
+    }
+    if (!entry) {
+      entry = await ProformaInvoice.findOne(baseFilter)
+        .populate("sales_account")
+        .populate("transportation_account")
+        .populate({ path: "products.product", populate: { path: "productGroupId" } });
     }
     if (!entry) {
       return res
@@ -94,16 +102,18 @@ app.get("/api/pdf/generate/:entryId", async (req, res) => {
         .json({ success: false, message: "Entry not found" });
     }
 
-    // Prefer invoiceTemp.html if present, fallback to invoiceTemplate.html
-    let templatePath = path.join(
-      __dirname,
-      "../frontend/public/invoiceTemp.html"
-    );
-    if (!fs.existsSync(templatePath)) {
-      templatePath = path.join(
-        __dirname,
-        "../frontend/public/invoiceTemplate.html"
-      );
+    // Choose template based on entry type. Prefer salesInvoiceTemp for Sales, invoiceTemp otherwise; fallback to invoiceTemplate
+    const candidateTemplates = [];
+    const isSales = entry.constructor && entry.constructor.modelName === "SalesInvoice";
+    if (isSales) {
+      candidateTemplates.push(path.join(__dirname, "../frontend/public/salesInvoiceTemp.html"));
+    }
+    candidateTemplates.push(path.join(__dirname, "../frontend/public/invoiceTemp.html"));
+    candidateTemplates.push(path.join(__dirname, "../frontend/public/invoiceTemplate.html"));
+
+    let templatePath = candidateTemplates.find((p) => fs.existsSync(p));
+    if (!templatePath) {
+      return res.status(500).json({ success: false, message: "No invoice template found" });
     }
     let html = fs.readFileSync(templatePath, "utf-8");
 
@@ -112,13 +122,56 @@ app.get("/api/pdf/generate/:entryId", async (req, res) => {
       String(pattern).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const replace = (s, find, val) =>
       s.replace(new RegExp(escapeForRegex(find), "g"), val ?? "");
-    html = replace(
-      html,
-      "{{companyName}}",
-      entry.sales_account?.companyName ||
-        entry.purchase_account?.companyName ||
-        ""
-    );
+    // Inject company details from the logged-in user's profile (Preferences)
+    let companyName = "";
+    let companyAddress = "";
+    let companyEmail = "";
+    let companyGSTIN = "";
+    let companyPAN = "";
+    let bankAccountNo = "";
+    let bankName = "";
+    let bankIFSC = "";
+    let bankBranch = "";
+    let qrCodeImage = "";
+    let termsAndConditions = "";
+
+    try {
+      const userDoc = userId ? await User.findById(userId).lean() : null;
+      const company = userDoc?.companyDetails || {};
+      const bank = company?.bankDetails || {};
+
+      companyName = company.companyName || "";
+      companyAddress = [company.registeredAddress1, company.registeredAddress2]
+        .filter(Boolean)
+        .join(", ");
+      companyEmail = company.email || ""; // Email on invoice
+      companyGSTIN = company.gstin || "";
+      companyPAN = company.pan || "";
+
+      bankAccountNo = bank.accountNumber || "";
+      bankName = bank.bankName || "";
+      bankIFSC = bank.ifscCode || "";
+      bankBranch = bank.branch || "";
+      qrCodeImage = userDoc?.qrCodeImage || "";
+      termsAndConditions = userDoc?.termsAndConditions || "";
+    } catch {}
+
+    html = replace(html, "{{companyName}}", companyName);
+    html = replace(html, "{{companyAddress}}", companyAddress);
+    html = replace(html, "{{companyEmail}}", companyEmail);
+    html = replace(html, "{{gstin}}", companyGSTIN);
+    html = replace(html, "{{pan}}", companyPAN);
+    html = replace(html, "{{accountNo}}", bankAccountNo);
+    html = replace(html, "{{bankName}}", bankName);
+    html = replace(html, "{{ifsc}}", bankIFSC);
+    html = replace(html, "{{branch}}", bankBranch);
+    // QR code and Terms & Conditions
+    const qrImgTag = qrCodeImage
+      ? `<img src="${qrCodeImage}" style="object-fit:contain; width: 70px; max-width: 70px; height: 100%;" />`
+      : "";
+    const termsHtml = String(termsAndConditions || "").replace(/\n/g, "<br/>");
+    html = replace(html, "{{qrCode}}", qrImgTag);
+    html = replace(html, "{{termsAndConditions}}", termsHtml);
 
     // Helpers
     const formatDate = (d) => {
@@ -307,16 +360,30 @@ app.get("/api/pdf/generate/:entryId", async (req, res) => {
     html = replace(html, "{{state}}", receiverState);
     html = replace(html, "{{stCode}}", receiverStatecode);
 
-    // Build product rows for invoiceTemp.html
+    // Build grouped product rows for invoiceTemp.html
     const products = Array.isArray(entry.products) ? entry.products : [];
-    const productRows = products
-      .map((prod, idx) => {
+    const groups = new Map();
+    for (const p of products) {
+      const groupName = p.product?.productGroupId?.name || "Others";
+      if (!groups.has(groupName)) groups.set(groupName, []);
+      groups.get(groupName).push(p);
+    }
+    let sr = 1;
+    let groupedRows = "";
+    for (const [groupName, groupProducts] of groups.entries()) {
+      // Group header row: Sr. increments here only
+      groupedRows += `
+        <tr class="group-row" style="font-weight: 500;">
+          <td class="num" style="width:12px">${sr++}.</td>
+          <td class="text-left" colspan="10"><strong>${groupName}</strong></td>
+        </tr>
+      `;
+      for (const prod of groupProducts) {
         const productName = prod.product?.name || "";
         const hsn = prod.product?.hsn_sac_code || prod.product?.hsn || "";
         const boxes = prod.boxes != null ? Number(prod.boxes) : 0;
         const noOfPcs = prod.no_of_pcs != null ? Number(prod.no_of_pcs) : 0;
-        const quantity =
-          prod.quantity != null ? Number(prod.quantity) : boxes * noOfPcs;
+        const quantity = prod.quantity != null ? Number(prod.quantity) : boxes * noOfPcs;
         const rate = prod.rate ?? 0;
         const discount = prod.discount ?? 0;
         const igst = prod.igst ?? 0;
@@ -325,28 +392,27 @@ app.get("/api/pdf/generate/:entryId", async (req, res) => {
         const base = Number(rate) * Number(quantity);
         const discountAmt = (base * Number(discount)) / 100;
         const gstPct = igst > 0 ? igst : Number(cgst) + Number(sgst);
-        const amount =
-          base - discountAmt + ((base - discountAmt) * Number(gstPct)) / 100;
-        return `
-        <tr style="text-align:center">
-          <td class="num" style="width:12px">${idx + 1}.</td>
-          <td class="text-left">
-            <strong style="margin:0;padding:0">${productName}</strong>
-          </td>
-          <td class="num">${hsn}</td>
-          <td class="num">${boxes}</td>
-          <td class="num">${quantity}</td>
-          <td class="num">${Number(rate).toFixed(2)}</td>
-          <td class="num">${Number(discount) || 0}%</td>
-          <td class="num">${Number(igst) || 0}%</td>
-          <td class="num">${Number(cgst) || 0}%</td>
-          <td class="num">${Number(sgst) || 0}%</td>
-          <td class="num">${amount.toFixed(2)}</td>
-        </tr>
-      `;
-      })
-      .join("\n");
-    html = html.replace("<!-- PRODUCTS_PLACEHOLDER -->", productRows);
+        const amount = base - discountAmt + ((base - discountAmt) * Number(gstPct)) / 100;
+        groupedRows += `
+          <tr style="text-align:center">
+            <td class="num" style="width:12px"></td>
+            <td class="text-left">
+              <strong style="margin:0;padding:0">${productName}</strong>
+            </td>
+            <td class="num">${hsn}</td>
+            <td class="num">${boxes}</td>
+            <td class="num">${quantity}</td>
+            <td class="num">${Number(rate).toFixed(2)}</td>
+            <td class="num">${Number(discount) || 0}%</td>
+            <td class="num">${Number(igst) || 0}%</td>
+            <td class="num">${Number(cgst) || 0}%</td>
+            <td class="num">${Number(sgst) || 0}%</td>
+            <td class="num">${amount.toFixed(2)}</td>
+          </tr>
+        `;
+      }
+    }
+    html = html.replace("<!-- PRODUCTS_PLACEHOLDER -->", groupedRows);
 
     // Totals and amounts
     const totalBoxes = products.reduce(
@@ -387,34 +453,49 @@ app.get("/api/pdf/generate/:entryId", async (req, res) => {
     });
     await browser.close();
 
-    // Ensure a storage directory exists for PDFs
-    const pdfDir = path.join(__dirname, "../public/pdfs");
-    if (!fs.existsSync(pdfDir)) {
-      fs.mkdirSync(pdfDir, { recursive: true });
-    }
-
-    // Save PDF to disk
+    // Store PDF directly in DB and return a streaming URL
     const fileName = `entry_${entryId}_${Date.now()}.pdf`;
-    const filePath = path.join(pdfDir, fileName);
-    fs.writeFileSync(filePath, pdfBuffer);
+    const binaryPdf = Buffer.isBuffer(pdfBuffer) ? pdfBuffer : Buffer.from(pdfBuffer);
+    const updates = { pdf_data: binaryPdf, pdf_mime: "application/pdf", pdf_filename: fileName };
+    let pdfStreamUrl = `http://localhost:${PORT}/api/pdf/${entryId}`;
 
-    // Persist URL into the document
-    const publicBase =
-      process.env.PUBLIC_BASE_URL || `http://localhost:${PORT}`;
-    const pdfUrl = `${publicBase}/pdfs/${fileName}`;
-
-    if (entry.sales_account) {
-      await SalesInvoice.findByIdAndUpdate(entry._id, { pdf_url: pdfUrl });
-    } else if (entry.purchase_account) {
-      await PurchaseInvoice.findByIdAndUpdate(entry._id, { pdf_url: pdfUrl });
+    if (entry.constructor && entry.constructor.modelName === "SalesInvoice") {
+      await SalesInvoice.findByIdAndUpdate(entry._id, updates);
+    } else if (entry.constructor && entry.constructor.modelName === "PurchaseInvoice") {
+      await PurchaseInvoice.findByIdAndUpdate(entry._id, updates);
+    } else if (entry.constructor && entry.constructor.modelName === "ProformaInvoice") {
+      await ProformaInvoice.findByIdAndUpdate(entry._id, updates);
     }
 
-    // Expose the static directory for serving PDFs (set once at boot ideally)
-
-    return res.json({ success: true, url: pdfUrl });
+    return res.json({ success: true, url: pdfStreamUrl });
   } catch (err) {
     console.error("PDF generation error:", err);
     res.status(500).json({ success: false, message: "Failed to generate PDF" });
+  }
+});
+
+// Stream PDF stored in DB by entry ID
+app.get("/api/pdf/:entryId", async (req, res) => {
+  try {
+    const entryId = req.params.entryId;
+    const { SalesInvoice, PurchaseInvoice, ProformaInvoice } = await import("./models/user.model.js");
+    const doc =
+      (await SalesInvoice.findById(entryId).select("pdf_data pdf_mime pdf_filename")) ||
+      (await PurchaseInvoice.findById(entryId).select("pdf_data pdf_mime pdf_filename")) ||
+      (await ProformaInvoice.findById(entryId).select("pdf_data pdf_mime pdf_filename"));
+
+    if (!doc || !doc.pdf_data) {
+      return res.status(404).json({ success: false, message: "PDF not found" });
+    }
+
+    res.setHeader("Content-Type", doc.pdf_mime || "application/pdf");
+    if (doc.pdf_filename) {
+      res.setHeader("Content-Disposition", `inline; filename=\"${doc.pdf_filename}\"`);
+    }
+    return res.send(doc.pdf_data);
+  } catch (err) {
+    console.error("PDF stream error:", err);
+    return res.status(500).json({ success: false, message: "Failed to stream PDF" });
   }
 });
 

@@ -8,6 +8,7 @@ const SalesInvoicesDisplay = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [transportations, setTransportations] = useState([]);
   const [products, setProducts] = useState([]);
   const [productGroups, setProductGroups] = useState([]);
@@ -224,7 +225,8 @@ const SalesInvoicesDisplay = () => {
     }
   };
 
-  const handleEdit = async (e) => {
+  const handleEdit = async (e, options = {}) => {
+    const { closeModal = true } = options;
     if (e) e.preventDefault();
 
     formData.freight_amount = parseFloat(formData.freight_amount);
@@ -266,8 +268,9 @@ const SalesInvoicesDisplay = () => {
     formData.total_products_amount = final_amount;
     formData.trans_doc_no =
       formData.bill_no.bill_prefix + "" + formData.bill_no.no;
-    formData.trans_date = new Date(formData.trans_date).toLocaleDateString();
-    formData.bill_date = new Date(formData.bill_date).toLocaleDateString();
+    // Use actual Date objects to avoid locale parsing issues on server
+    formData.trans_date = formData.trans_date ? new Date(formData.trans_date) : null;
+    formData.bill_date = formData.bill_date ? new Date(formData.bill_date) : null;
 
     try {
       await axios.put(`${API_URL}/sales-invoice/${selectedInvoiceId}`, {
@@ -275,7 +278,7 @@ const SalesInvoicesDisplay = () => {
       });
       toast.success("Invoice updated!");
       fetchInvoices();
-      setShowModal(false);
+      if (closeModal) setShowModal(false);
       return true; // Return success status
     } catch (err) {
       console.error(err);
@@ -298,17 +301,14 @@ const SalesInvoicesDisplay = () => {
 
   const handleSaveAndPrint = async () => {
     try {
-      // First save the invoice
-      const saveSuccess = await handleEdit();
-
-      // Then request backend to generate & store PDF and open its URL
+      setIsGeneratingPdf(true);
+      // First save the invoice without closing modal
+      const saveSuccess = await handleEdit(undefined, { closeModal: false });
       if (saveSuccess && formData) {
         try {
           const resp = await axios.get(
             `http://localhost:5000/api/pdf/generate/${selectedInvoiceId}`,
-            {
-              withCredentials: true,
-            }
+            { withCredentials: true }
           );
           if (resp?.data?.success && resp?.data?.url) {
             window.open(resp.data.url, "_blank");
@@ -324,6 +324,8 @@ const SalesInvoicesDisplay = () => {
     } catch (err) {
       console.error(err);
       toast.error("Failed to save invoice or generate PDF");
+    } finally {
+      setIsGeneratingPdf(false);
     }
   };
 
@@ -987,7 +989,15 @@ const SalesInvoicesDisplay = () => {
                 />
               </div>
 
-              <div className="d-flex gap-3 align-items-center">
+              <div className="d-flex gap-3 align-items-center w-100 justify-content-end">
+                {isGeneratingPdf && (
+                  <div className="d-flex align-items-center gap-2 me-auto">
+                    <div className="progress" style={{ width: "180px", height: "6px" }}>
+                      <div className="progress-bar progress-bar-striped progress-bar-animated" style={{ width: "100%" }} />
+                    </div>
+                    <small>Generating PDF...</small>
+                  </div>
+                )}
                 <button
                   type="button"
                   className="post-button"
@@ -1042,8 +1052,9 @@ const SalesInvoicesDisplay = () => {
                   type="button"
                   className="login-button"
                   onClick={handleSaveAndPrint}
+                  disabled={isGeneratingPdf}
                 >
-                  Save & Print
+                  {isGeneratingPdf ? "Generating..." : "Save & Print"}
                 </button>
                 <button
                   type="button"

@@ -17,6 +17,7 @@ const ProformaDisplay = () => {
   const [productGroups, setProductGroups] = useState([]);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState(null);
   const [isValidated, setIsValidated] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   const [selectedMethod, setSelectedMethod] = useState("");
 
@@ -237,7 +238,9 @@ const ProformaDisplay = () => {
     }
   };
 
-  const handleEdit = async (e) => {
+  const handleEdit = async (e, options = {}) => {
+    const { closeModal = true } = options;
+    if (e) e.preventDefault();
     formData.freight_amount = parseFloat(formData.freight_amount);
     formData.bill_no.no = parseInt(formData.bill_no.no);
     let final_amount = 0;
@@ -279,17 +282,47 @@ const ProformaDisplay = () => {
       formData.bill_no.bill_prefix + "" + formData.bill_no.no;
     formData.trans_date = new Date(formData.trans_date).toLocaleDateString();
     formData.bill_date = new Date(formData.bill_date).toLocaleDateString();
-    e.preventDefault();
     try {
       await axios.put(`${API_URL}/proforma-invoice/${selectedInvoiceId}`, {
         proformaInvoiceDetails: formData,
       });
       toast.success("Invoice updated!");
       fetchInvoices();
-      setShowModal(false);
+      if (closeModal) setShowModal(false);
+      return true;
     } catch (err) {
       console.error(err);
       toast.error("Failed to update invoice" + err.message);
+      return false;
+    }
+  };
+
+  const handleSaveAndPrint = async () => {
+    try {
+      setIsGeneratingPdf(true);
+      const saveSuccess = await handleEdit(undefined, { closeModal: false });
+      if (saveSuccess && formData) {
+        try {
+          const resp = await axios.get(
+            `http://localhost:5000/api/pdf/generate/${selectedInvoiceId}`,
+            { withCredentials: true }
+          );
+          if (resp?.data?.success && resp?.data?.url) {
+            window.open(resp.data.url, "_blank");
+            toast.success("Invoice saved and PDF ready!");
+          } else {
+            throw new Error("Invalid response from server");
+          }
+        } catch (error) {
+          console.error("Error generating PDF URL:", error);
+          toast.error("Invoice saved but PDF generation failed");
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to save invoice or generate PDF");
+    } finally {
+      setIsGeneratingPdf(false);
     }
   };
 
@@ -1026,7 +1059,15 @@ const ProformaDisplay = () => {
                 </button>
               </div>
 
-              <div className="d-flex gap-3 align-items-center">
+              <div className="d-flex gap-3 align-items-center w-100 justify-content-end">
+                {isGeneratingPdf && (
+                  <div className="d-flex align-items-center gap-2 me-auto">
+                    <div className="progress" style={{ width: "180px", height: "6px" }}>
+                      <div className="progress-bar progress-bar-striped progress-bar-animated" style={{ width: "100%" }} />
+                    </div>
+                    <small>Generating PDF...</small>
+                  </div>
+                )}
                 <button
                   type="button"
                   className="post-button"
@@ -1046,9 +1087,10 @@ const ProformaDisplay = () => {
                 <button
                   type="button"
                   className="login-button"
-                  onClick={handleEdit}
+                  onClick={handleSaveAndPrint}
+                  disabled={isGeneratingPdf}
                 >
-                  Save & Print
+                  {isGeneratingPdf ? "Generating..." : "Save & Print"}
                 </button>
                 <button
                   type="button"

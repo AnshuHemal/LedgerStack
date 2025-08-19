@@ -59,6 +59,30 @@ const UserSchema = mongoose.Schema(
         },
       },
     },
+
+    // Profile/Preferences fields
+    profileImage: { type: String, default: "" }, // base64 or URL
+    skills: { type: [String], default: [] },
+    languages: { type: [String], default: [] },
+    walletBalance: { type: Number, default: 0 },
+    qrCodeImage: { type: String, default: "" }, // base64 image for QR code
+    termsAndConditions: { type: String, default: "" },
+    education: {
+      type: [
+        new mongoose.Schema(
+          {
+            institution: { type: String },
+            degree: { type: String },
+            field: { type: String },
+            startYear: { type: Number },
+            endYear: { type: Number },
+            description: { type: String },
+          },
+          { _id: false }
+        ),
+      ],
+      default: [],
+    },
   },
   {
     timestamps: true,
@@ -398,6 +422,9 @@ const SalesInvoiceSchema = mongoose.Schema(
       type: String,
       default: "",
     },
+    pdf_data: { type: Buffer, select: false },
+    pdf_mime: { type: String, default: "application/pdf", select: false },
+    pdf_filename: { type: String, default: "" },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -537,6 +564,10 @@ const ProformaInvoiceSchema = mongoose.Schema(
     remarks: {
       type: String,
     },
+    pdf_url: { type: String, default: "" },
+    pdf_data: { type: Buffer, select: false },
+    pdf_mime: { type: String, default: "application/pdf", select: false },
+    pdf_filename: { type: String, default: "" },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -617,6 +648,9 @@ const PurchaseInvoiceSchema = mongoose.Schema(
       type: String,
       default: "",
     },
+    pdf_data: { type: Buffer, select: false },
+    pdf_mime: { type: String, default: "application/pdf", select: false },
+    pdf_filename: { type: String, default: "" },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
