@@ -8,10 +8,97 @@ import {
   Transportation,
 } from "../models/user.model.js";
 
+// Utility function to determine GST type based on state codes
+const determineGSTType = (companyGST, accountGST) => {
+  if (!companyGST || !accountGST) return "IGST"; // Default to IGST if GST numbers are missing
+  
+  // Extract state codes (first 2 digits after the first 2 digits which are country code)
+  const companyStateCode = companyGST.substring(2, 4);
+  const accountStateCode = accountGST.substring(2, 4);
+  
+  // If state codes are the same, it's intra-state (CGST+SGST)
+  // If different, it's inter-state (IGST)
+  return companyStateCode === accountStateCode ? "CGST+SGST" : "IGST";
+};
+
+// Function to recalculate GST for products based on state codes
+const recalculateGSTForProducts = async (products, salesAccount, deliveryPartyAccount) => {
+  const { AccountMaster, Product } = await import("../models/user.model.js");
+  
+  // Get account details
+  const account = await AccountMaster.findById(salesAccount);
+  const companyGST = account?.gstin || "";
+  const accountGST = deliveryPartyAccount?.gst || companyGST;
+  
+  const updatedProducts = [];
+  
+  for (const product of products) {
+    if (!product.product) {
+      updatedProducts.push(product);
+      continue;
+    }
+    
+    const productDetails = await Product.findById(product.product);
+    if (!productDetails) {
+      updatedProducts.push(product);
+      continue;
+    }
+    
+    const gst = productDetails.gst || 0;
+    const gstType = determineGSTType(companyGST, accountGST);
+    const halfGST = gst / 2;
+    
+    updatedProducts.push({
+      ...product,
+      igst: gstType === "IGST" ? gst : null,
+      cgst: gstType === "CGST+SGST" ? halfGST : null,
+      sgst: gstType === "CGST+SGST" ? halfGST : null,
+    });
+  }
+  
+  return updatedProducts;
+};
+
 export const addSalesInvoice = async (req, res) => {
   try {
+    const { OutstandingReceivable } = await import("../models/user.model.js");
+    
+    // Fetch outstanding balance for the account
+    let lastBalance = 0;
+    if (req.body.sales_account) {
+      const lastReceivableEntry = await OutstandingReceivable.findOne(
+        { account: req.body.sales_account, createdBy: req.user.userId },
+        {},
+        { sort: { date: -1 } }
+      );
+      lastBalance = lastReceivableEntry ? lastReceivableEntry.balance : 0;
+    }
+    
+    const currentAmt = req.body.final_amount || 0;
+    
+    // Calculate net balance based on last balance type
+    let netBalance;
+    if (lastBalance >= 0) {
+      // Last balance is Credit, so net balance = current amt - last balance
+      netBalance = currentAmt - lastBalance;
+    } else {
+      // Last balance is Debit, so net balance = current amt + last balance (last balance is negative)
+      netBalance = currentAmt + lastBalance;
+    }
+    
+    // Recalculate GST based on state codes before saving
+    const updatedProducts = await recalculateGSTForProducts(
+      req.body.products || [],
+      req.body.sales_account,
+      req.body.delivery_party_account
+    );
+    
     const newInvoice = new SalesInvoice({
       ...req.body,
+      products: updatedProducts,
+      lastBalance: lastBalance,
+      currentAmt: currentAmt,
+      netBalance: netBalance,
       createdBy: req.user.userId,
     });
 
@@ -71,10 +158,50 @@ export const updateSalesInvoice = async (req, res) => {
   try {
     const { id } = req.params;
     const { salesInvoiceDetails } = req.body;
+    const { OutstandingReceivable } = await import("../models/user.model.js");
+
+    // Fetch outstanding balance for the account if sales_account is being updated
+    let lastBalance = 0;
+    if (salesInvoiceDetails.sales_account) {
+      const lastReceivableEntry = await OutstandingReceivable.findOne(
+        { account: salesInvoiceDetails.sales_account, createdBy: req.user.userId },
+        {},
+        { sort: { date: -1 } }
+      );
+      lastBalance = lastReceivableEntry ? lastReceivableEntry.balance : 0;
+    }
+
+    const currentAmt = salesInvoiceDetails.final_amount || 0;
+    
+    // Calculate net balance based on last balance type
+    let netBalance;
+    if (lastBalance >= 0) {
+      // Last balance is Credit, so net balance = current amt - last balance
+      netBalance = currentAmt - lastBalance;
+    } else {
+      // Last balance is Debit, so net balance = current amt + last balance (last balance is negative)
+      netBalance = currentAmt + lastBalance;
+    }
+    
+    // Recalculate GST based on state codes before updating
+    const updatedProducts = await recalculateGSTForProducts(
+      salesInvoiceDetails.products || [],
+      salesInvoiceDetails.sales_account,
+      salesInvoiceDetails.delivery_party_account
+    );
+    
+    // Update balance information
+    const updatedSalesInvoiceDetails = {
+      ...salesInvoiceDetails,
+      products: updatedProducts,
+      lastBalance: lastBalance,
+      currentAmt: currentAmt,
+      netBalance: netBalance,
+    };
 
     const updatedInvoice = await SalesInvoice.findOneAndUpdate(
       { _id: id, createdBy: req.user.userId },
-      salesInvoiceDetails,
+      updatedSalesInvoiceDetails,
       { new: true }
     );
 
@@ -116,8 +243,16 @@ export const deleteSalesInvoice = async (req, res) => {
 
 export const addProformaInvoice = async (req, res) => {
   try {
+    // Recalculate GST based on state codes before saving
+    const updatedProducts = await recalculateGSTForProducts(
+      req.body.products || [],
+      req.body.sales_account,
+      req.body.delivery_party_account
+    );
+    
     const newInvoice = new ProformaInvoice({
       ...req.body,
+      products: updatedProducts,
       createdBy: req.user.userId,
     });
     await newInvoice.save();
@@ -175,9 +310,21 @@ export const updateProformaInvoice = async (req, res) => {
     const { id } = req.params;
     const { proformaInvoiceDetails } = req.body;
 
+    // Recalculate GST based on state codes before updating
+    const updatedProducts = await recalculateGSTForProducts(
+      proformaInvoiceDetails.products || [],
+      proformaInvoiceDetails.sales_account,
+      proformaInvoiceDetails.delivery_party_account
+    );
+    
+    const updatedInvoiceDetails = {
+      ...proformaInvoiceDetails,
+      products: updatedProducts,
+    };
+
     const updatedInvoice = await ProformaInvoice.findOneAndUpdate(
       { _id: id, createdBy: req.user.userId },
-      proformaInvoiceDetails,
+      updatedInvoiceDetails,
       { new: true }
     );
 

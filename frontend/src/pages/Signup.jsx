@@ -27,9 +27,9 @@ const Signup = () => {
 
   const navigate = useNavigate();
 
-  const API_URL = "http://localhost:5000/api/auth";
-  const COMPANY_URL = "http://localhost:5000/api/company";
-  const BANK_URL = "http://localhost:5000/api/bank-details";
+  const API_URL = import.meta.env.VITE_AUTH_URL || "http://localhost:5000/api/auth";
+  const COMPANY_URL = import.meta.env.VITE_COMPANY_URL || "http://localhost:5000/api/company";
+  const BANK_URL = import.meta.env.VITE_BANK_URL || "http://localhost:5000/api/bank-details";
 
   // Company Details Modal State
   const [showCompanyModal, setShowCompanyModal] = useState(false);
@@ -211,8 +211,8 @@ const Signup = () => {
       );
 
       if (response?.data?.success) {
-        toast.success("Account created successfully!");
-        navigate("/");
+        toast.success("Account created successfully! Default account groups have been set up.");
+        navigate("/dashboard");
       } else {
         toast.error("Failed to create account.");
       }
@@ -234,19 +234,39 @@ const Signup = () => {
     }
     try {
       setIsFetchingGstin(true);
-      const resp = await axios.get(`${COMPANY_URL}/fetch-gstin/${gstinInput}`, {
-        withCredentials: true,
-      });
-      if (resp?.data?.success) {
-        setCompanyDetails((prev) => ({ ...prev, ...resp.data.data }));
-        toast.success("GSTIN details fetched. Please review before saving.");
-      } else {
-        toast.error(resp?.data?.message || "Failed to fetch GSTIN details");
-      }
-    } catch (err) {
-      toast.error(
-        err?.response?.data?.message || "Failed to fetch GSTIN details"
+      const response = await axios.get(
+        `https://sheet.gstincheck.co.in/check/36291eeb6c9ff0f2ce9588c9dcd71521/${gstinInput}`,
+        { withCredentials: false }
       );
+      
+      if (response.data.flag !== true) {
+        toast.error(response.data.message);
+        return;
+      }
+
+      setCompanyDetails((prev) => ({
+        ...prev,
+        companyName: response.data.data.tradeNam || "",
+        address1: response.data.data.pradr.addr.bnm || "",
+        address2: response.data.data.pradr.addr.st || "",
+        registeredAddress1: response.data.data.pradr.addr.bnm || "",
+        registeredAddress2: response.data.data.pradr.addr.st || "",
+        city: response.data.data.pradr.addr.dst || "",
+        pincode: response.data.data.pradr.addr.pncd || "",
+        district: response.data.data.pradr.addr.dst || "",
+        state: response.data.data.pradr.addr.stcd || "",
+        authorisedPerson: response.data.data.lgnm || "",
+        phone: "",
+        email: "",
+        website: "",
+        gstin: gstinInput,
+        pan: gstinInput.slice(2, 12),
+      }));
+      
+      toast.success("GSTIN details fetched successfully. Please review before saving.");
+    } catch (err) {
+      console.error("GST fetch error:", err);
+      toast.error("Invalid GSTIN or unable to fetch data.");
     } finally {
       setIsFetchingGstin(false);
     }

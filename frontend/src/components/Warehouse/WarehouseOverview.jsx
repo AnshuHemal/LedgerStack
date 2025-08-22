@@ -29,6 +29,41 @@ const WarehouseOverview = () => {
     locationFilter: "",
   });
 
+  // Compute subparts that currently exist under an Unallocated location
+  const unallocatedSubpartIds = React.useMemo(() => {
+    const ids = new Set();
+    try {
+      (skus || [])
+        .filter(
+          (sku) =>
+            typeof sku?.location === "string" &&
+            sku.location.toLowerCase().startsWith("unallocated")
+        )
+        .forEach((sku) => {
+          (sku.products || []).forEach((product) => {
+            (product.parts || []).forEach((part) => {
+              if (part?.subpartId) {
+                ids.add(String(part.subpartId));
+              }
+            });
+          });
+        });
+    } catch (e) {
+      // no-op; defensive
+    }
+    return ids;
+  }, [skus]);
+
+  const hasUnallocatedSelected = React.useMemo(() => {
+    try {
+      return Object.values(productSubparts)
+        .flat()
+        .some((sp) => unallocatedSubpartIds.has(String(sp._id)));
+    } catch (_) {
+      return false;
+    }
+  }, [productSubparts, unallocatedSubpartIds]);
+
   const PRODUCT_URL = "http://localhost:5000/api/product";
   const SUBPARTS_URL = "http://localhost:5000/api/subparts";
   const WAREHOUSE_URL = "http://localhost:5000/api/warehouse";
@@ -298,6 +333,14 @@ const WarehouseOverview = () => {
     // Validate form
     if (!skuFormData.group || !skuFormData.location) {
       toast.error("Please fill all required fields");
+      return;
+    }
+
+    // Block save if any selected subpart is unallocated
+    if (hasUnallocatedSelected) {
+      toast.error(
+        "Some selected subparts are unallocated. Please allocate locations before saving."
+      );
       return;
     }
 
@@ -1060,15 +1103,6 @@ const WarehouseOverview = () => {
                                   {productSubparts[product._id] ? (
                                     productSubparts[product._id].length > 0 ? (
                                       <div>
-                                        <label
-                                          style={{
-                                            fontWeight: "500",
-                                            marginBottom: "8px",
-                                            display: "block",
-                                          }}
-                                        >
-                                          Select Subparts:
-                                        </label>
                                         {productSubparts[product._id].map(
                                           (subpart) => (
                                             <div
@@ -1084,6 +1118,22 @@ const WarehouseOverview = () => {
                                                   Subpart #
                                                   {subpart._id.slice(-6)}
                                                 </span>
+                                                {unallocatedSubpartIds.has(String(subpart._id)) && (
+                                                  <span
+                                                    style={{
+                                                      marginLeft: "8px",
+                                                      padding: "2px 6px",
+                                                      borderRadius: "12px",
+                                                      fontSize: "0.75em",
+                                                      backgroundColor: "#fdecea",
+                                                      color: "#b71c1c",
+                                                      border: "1px solid #f5c6cb",
+                                                    }}
+                                                    title="This subpart has an unallocated location. Please allocate a location."
+                                                  >
+                                                    Unallocated — allocate location
+                                                  </span>
+                                                )}
                                               </div>
                                               {subpart.parts &&
                                                 subpart.parts.length > 0 && (
@@ -1092,6 +1142,18 @@ const WarehouseOverview = () => {
                                                       marginLeft: "20px",
                                                       fontSize: "0.9em",
                                                       color: "#666",
+                                                      border: unallocatedSubpartIds.has(String(subpart._id))
+                                                        ? "1px solid #f5c6cb"
+                                                        : undefined,
+                                                      borderRadius: unallocatedSubpartIds.has(String(subpart._id))
+                                                        ? "6px"
+                                                        : undefined,
+                                                      padding: unallocatedSubpartIds.has(String(subpart._id))
+                                                        ? "8px"
+                                                        : undefined,
+                                                      backgroundColor: unallocatedSubpartIds.has(String(subpart._id))
+                                                        ? "#fdecea"
+                                                        : undefined,
                                                     }}
                                                   >
                                                     {subpart.parts.map(
@@ -1282,6 +1344,25 @@ const WarehouseOverview = () => {
                       required
                       placeholder="Enter unique location"
                     />
+                  </div>
+                  <div className="col-md-8" style={{ display: selectedProducts.length > 0 ? "block" : "none" }}>
+                    {(Object.values(productSubparts)
+                      .flat()
+                      .some((sp) => unallocatedSubpartIds.has(String(sp._id)))) && (
+                      <div
+                        style={{
+                          marginTop: "28px",
+                          padding: "10px 12px",
+                          backgroundColor: "#fff3cd",
+                          border: "1px solid #ffeaa7",
+                          borderRadius: "6px",
+                          color: "#856404",
+                          fontSize: "0.9em",
+                        }}
+                      >
+                        Some selected subparts have an unallocated location. Please allocate a location before saving.
+                      </div>
+                    )}
                   </div>
 
                   <div className="col-md-4">

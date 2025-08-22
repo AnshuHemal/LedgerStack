@@ -1,6 +1,24 @@
 import Order from "../models/order.model.js";
 import { AccountMaster, Product } from "../models/user.model.js";
 
+// Helper to compute overall order status from product statuses
+const computeOverallStatus = (products = []) => {
+  const statuses = (products || []).map((p) => (p?.status || "pending").toLowerCase());
+  if (statuses.length === 0) return "pending";
+
+  // All delivered
+  if (statuses.every((s) => s === "delivered")) return "delivered";
+  // All shipped or delivered
+  if (statuses.every((s) => s === "shipped" || s === "delivered")) return "shipped";
+  // All ready or later
+  if (statuses.every((s) => ["ready", "shipped", "delivered"].includes(s))) return "ready";
+  // Any in_production
+  if (statuses.some((s) => s === "in_production")) return "in_production";
+  // Any confirmed
+  if (statuses.some((s) => s === "confirmed")) return "confirmed";
+  return "pending";
+};
+
 // Create Order
 export const createOrder = async (req, res) => {
   try {
@@ -10,6 +28,8 @@ export const createOrder = async (req, res) => {
     };
 
     const newOrder = new Order(orderData);
+    // Ensure overall status reflects product statuses
+    newOrder.status = computeOverallStatus(newOrder.products);
     
     // If orderNumber is not set, generate it manually
     if (!newOrder.orderNumber) {
@@ -47,7 +67,7 @@ export const createOrder = async (req, res) => {
 export const getOrders = async (req, res) => {
   try {
     const createdBy = req.user.userId;
-    const orders = await Order.find({ createdBy })
+    let orders = await Order.find({ createdBy })
       .populate("company", "companyName city")
       .populate({
         path: "products.productId",
@@ -58,6 +78,13 @@ export const getOrders = async (req, res) => {
         }
       })
       .sort({ createdAt: -1 });
+
+    // Recompute status for response to avoid stale values
+    orders = orders.map((o) => {
+      const doc = o.toObject();
+      doc.status = computeOverallStatus(doc.products);
+      return doc;
+    });
 
     res.json({
       message: "Orders retrieved successfully",
@@ -105,6 +132,10 @@ export const updateOrder = async (req, res) => {
     const orderId = req.params.id;
     const createdBy = req.user.userId;
     const updateData = req.body;
+    // If products are being updated, recompute overall status
+    if (Array.isArray(updateData.products)) {
+      updateData.status = computeOverallStatus(updateData.products);
+    }
 
     const order = await Order.findOneAndUpdate(
       { _id: orderId, createdBy },

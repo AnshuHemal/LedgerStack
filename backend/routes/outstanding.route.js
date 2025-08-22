@@ -5,6 +5,7 @@ import {
   getOutstandingPayable,
   getOutstandingReceivable,
   getOutstandingBalance,
+  getAccountOutstandingBalance,
 } from "../controllers/outstanding.controller.js";
 
 const router = express.Router();
@@ -35,5 +36,8 @@ router.get("/receivable", protect, getOutstandingReceivable);
 
 // Get outstanding balance for a specific account
 router.get("/balance/:accountId", protect, getOutstandingBalance);
+
+// Get account outstanding balance by type (payable/receivable)
+router.get("/account/:accountId", protect, getAccountOutstandingBalance);
 
 export default router; 

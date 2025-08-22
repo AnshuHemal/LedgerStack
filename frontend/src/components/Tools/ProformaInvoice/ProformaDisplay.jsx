@@ -15,6 +15,7 @@ const ProformaDisplay = () => {
   const [transportations, setTransportations] = useState([]);
   const [products, setProducts] = useState([]);
   const [productGroups, setProductGroups] = useState([]);
+  const [accounts, setAccounts] = useState([]);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState(null);
   const [isValidated, setIsValidated] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
@@ -78,6 +79,44 @@ const ProformaDisplay = () => {
 
   axios.defaults.withCredentials = true;
 
+  // Utility function to determine GST type based on state codes
+  const determineGSTType = (companyGST, accountGST) => {
+    if (!companyGST || !accountGST) return "IGST"; // Default to IGST if GST numbers are missing
+    
+    // Extract state codes (first 2 digits after the first 2 digits which are country code)
+    const companyStateCode = companyGST.substring(2, 4);
+    const accountStateCode = accountGST.substring(2, 4);
+    
+    // If state codes are the same, it's intra-state (CGST+SGST)
+    // If different, it's inter-state (IGST)
+    return companyStateCode === accountStateCode ? "CGST+SGST" : "IGST";
+  };
+
+  // Function to recalculate GST for all products based on current account and delivery party
+  const recalculateGSTForProducts = (formProducts, salesAccount, deliveryPartyAccount) => {
+    const selectedAccount = accounts.find((a) => a._id === salesAccount);
+    const companyGST = selectedAccount?.gstin || "";
+    const accountGST = deliveryPartyAccount?.gst || companyGST;
+    
+    return formProducts.map(product => {
+      if (!product.product) return product; // Skip if no product selected
+      
+      const selectedProduct = products.find((p) => p._id === product.product);
+      if (!selectedProduct) return product;
+      
+      const gst = selectedProduct.gst || 0;
+      const gstType = determineGSTType(companyGST, accountGST);
+      const halfGST = gst / 2;
+      
+      return {
+        ...product,
+        igst: gstType === "IGST" ? gst : null,
+        cgst: gstType === "CGST+SGST" ? halfGST : null,
+        sgst: gstType === "CGST+SGST" ? halfGST : null,
+      };
+    });
+  };
+
   const API_URL = import.meta.env.VITE_INCOME_EXPENSES_URL;
   const PRODUCT_URL = import.meta.env.VITE_PRODUCT_URL;
 
@@ -117,12 +156,14 @@ const ProformaDisplay = () => {
 
   const fetchData = async () => {
     try {
-      const [transportationRes, productGroupRes] = await Promise.all([
+      const [transportationRes, productGroupRes, accountRes] = await Promise.all([
         axios.get(`${API_URL}/transportation`),
-        axios.get(`${PRODUCT_URL}/product-group`)
+        axios.get(`${PRODUCT_URL}/product-group`),
+        axios.get(`${PRODUCT_URL.replace('/product', '/account')}/account-master`)
       ]);
       setTransportations(transportationRes.data.data);
       setProductGroups(productGroupRes.data);
+      setAccounts(accountRes.data);
       // Don't fetch products initially - they'll be fetched when a group is selected
     } catch (error) {
       console.error("Error fetching meta data:", error);
@@ -231,6 +272,16 @@ const ProformaDisplay = () => {
           ...prev,
           bill_no: newBillNo,
           trans_doc_no: `${newBillNo.bill_prefix}${value}`,
+        };
+      });
+    } else if (name === "sales_account") {
+      // Recalculate GST when sales account changes
+      setFormData((prev) => {
+        const updatedProducts = recalculateGSTForProducts(prev.products, value, prev.delivery_party_account);
+        return {
+          ...prev,
+          [name]: value,
+          products: updatedProducts,
         };
       });
     } else {
@@ -386,6 +437,14 @@ const ProformaDisplay = () => {
 
       if (selectedProduct) {
         const gst = selectedProduct.gst || 0;
+        
+        // Get company and account GST numbers for state comparison
+        const selectedAccount = accounts.find((a) => a._id === formData.sales_account);
+        const companyGST = selectedAccount?.gstin || "";
+        const accountGST = formData.delivery_party_account?.gst || companyGST; // Use delivery party GST if available, otherwise company GST
+        
+        // Determine GST type based on state codes
+        const gstType = determineGSTType(companyGST, accountGST);
         const halfGST = gst / 2;
 
         updatedProducts[index] = {
@@ -393,9 +452,9 @@ const ProformaDisplay = () => {
           product: selectedProduct._id,
           unit: selectedProduct.unit || "",
           rate: selectedProduct.sale_rate || 0,
-          igst: selectedProduct.gst_type === "IGST" ? gst : null,
-          cgst: selectedProduct.gst_type === "CGST+SGST" ? halfGST : null,
-          sgst: selectedProduct.gst_type === "CGST+SGST" ? halfGST : null,
+          igst: gstType === "IGST" ? gst : null,
+          cgst: gstType === "CGST+SGST" ? halfGST : null,
+          sgst: gstType === "CGST+SGST" ? halfGST : null,
         };
       }
     } else {
@@ -454,13 +513,21 @@ const ProformaDisplay = () => {
   const handleDeliveryPartyChange = (e) => {
     const { name, value } = e.target;
 
-    setFormData((prev) => ({
-      ...prev,
-      delivery_party_account: {
+    setFormData((prev) => {
+      const updatedDeliveryParty = {
         ...prev.delivery_party_account,
         [name]: value,
-      },
-    }));
+      };
+      
+      // Recalculate GST when delivery party GST changes
+      const updatedProducts = recalculateGSTForProducts(prev.products, prev.sales_account, updatedDeliveryParty);
+      
+      return {
+        ...prev,
+        delivery_party_account: updatedDeliveryParty,
+        products: updatedProducts,
+      };
+    });
   };
 
   const handleConfirmDeliveryParty = () => {};

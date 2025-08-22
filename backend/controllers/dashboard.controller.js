@@ -350,3 +350,310 @@ export const getProductsSalesPerMonth = async (req, res) => {
     });
   }
 };
+
+// Get order trends for analytics
+export const getOrderTrends = async (req, res) => {
+  try {
+    const currentYear = new Date().getFullYear();
+    const startDate = new Date(currentYear, 0, 1);
+    const endDate = new Date(currentYear, 11, 31, 23, 59, 59);
+
+    const userId = req.user?.userId;
+    const orderTrends = await Order.aggregate([
+      {
+        $match: Object.assign(
+          { createdAt: { $gte: startDate, $lte: endDate } },
+          userId ? { createdBy: new (await import('mongoose')).default.Types.ObjectId(userId) } : {}
+        )
+      },
+      {
+        $group: {
+          _id: { $month: "$createdAt" },
+          count: { $sum: 1 },
+          totalAmount: { $sum: "$totalAmount" }
+        }
+      },
+      {
+        $sort: { "_id": 1 }
+      }
+    ]);
+
+    const monthNames = [
+      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+    ];
+
+    const completeTrends = monthNames.map((month, index) => {
+      const monthData = orderTrends.find(trend => trend._id === index + 1);
+      return {
+        month,
+        count: monthData ? monthData.count : 0,
+        totalAmount: monthData ? monthData.totalAmount : 0
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      data: completeTrends
+    });
+  } catch (error) {
+    console.error("Order trends error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching order trends",
+      error: error.message
+    });
+  }
+};
+
+// Get product performance analytics
+export const getProductPerformance = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+    const productPerformance = await Product.find(userId ? { createdBy: userId } : {})
+      .populate("productGroupId")
+      .limit(10)
+      .lean();
+
+    const performanceData = productPerformance.map(product => ({
+      name: product.name,
+      availableQuantity: product.availableQuantity || 0,
+      productGroup: product.productGroupId?.name || 'N/A',
+      createdAt: product.createdAt
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: performanceData
+    });
+  } catch (error) {
+    console.error("Product performance error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching product performance",
+      error: error.message
+    });
+  }
+};
+
+// Get customer analytics
+export const getCustomerAnalytics = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+    const customerAnalytics = await Order.aggregate([
+      ...(userId
+        ? [{ $match: { createdBy: new (await import('mongoose')).default.Types.ObjectId(userId) } }]
+        : []),
+      {
+        $lookup: {
+          from: "accountmasters",
+          localField: "company",
+          foreignField: "_id",
+          as: "customer"
+        }
+      },
+      {
+        $unwind: "$customer"
+      },
+      {
+        $group: {
+          _id: "$customer.companyName",
+          orderCount: { $sum: 1 },
+          totalAmount: { $sum: "$totalAmount" }
+        }
+      },
+      {
+        $sort: { orderCount: -1 }
+      },
+      {
+        $limit: 5
+      }
+    ]);
+
+    const analyticsData = customerAnalytics.map(customer => ({
+      name: customer._id,
+      count: customer.orderCount,
+      totalAmount: customer.totalAmount
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: analyticsData
+    });
+  } catch (error) {
+    console.error("Customer analytics error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching customer analytics",
+      error: error.message
+    });
+  }
+};
+
+// Get inventory analytics
+export const getInventoryAnalytics = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+    const currentYear = new Date().getFullYear();
+    const startDate = new Date(currentYear, 0, 1);
+    const endDate = new Date(currentYear, 11, 31, 23, 59, 59);
+
+    const inventoryAnalytics = await Product.aggregate([
+      ...(userId
+        ? [{ $match: { createdBy: new (await import('mongoose')).default.Types.ObjectId(userId) } }]
+        : []),
+      {
+        $match: {
+          createdAt: { $gte: startDate, $lte: endDate }
+        }
+      },
+      {
+        $group: {
+          _id: { $month: "$createdAt" },
+          count: { $sum: 1 }
+        }
+      },
+      {
+        $sort: { "_id": 1 }
+      }
+    ]);
+
+    const monthNames = [
+      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+    ];
+
+    const completeAnalytics = monthNames.map((month, index) => {
+      const monthData = inventoryAnalytics.find(analytics => analytics._id === index + 1);
+      return {
+        month,
+        count: monthData ? monthData.count : 0
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      data: completeAnalytics
+    });
+  } catch (error) {
+    console.error("Inventory analytics error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching inventory analytics",
+      error: error.message
+    });
+  }
+};
+
+// Get generated reports
+export const getGeneratedReports = async (req, res) => {
+  try {
+    // Mock data for generated reports - you can implement actual report storage
+    const generatedReports = [
+      {
+        name: "Monthly Orders Report",
+        generatedOn: new Date(),
+        status: "completed",
+        type: "orders"
+      },
+      {
+        name: "Product Availability Report",
+        generatedOn: new Date(Date.now() - 86400000), // 1 day ago
+        status: "completed",
+        type: "products"
+      },
+      {
+        name: "Inventory Status Report",
+        generatedOn: new Date(Date.now() - 172800000), // 2 days ago
+        status: "processing",
+        type: "inventory"
+      }
+    ];
+
+    res.status(200).json({
+      success: true,
+      data: generatedReports
+    });
+  } catch (error) {
+    console.error("Generated reports error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching generated reports",
+      error: error.message
+    });
+  }
+};
+
+// Get report templates
+export const getReportTemplates = async (req, res) => {
+  try {
+    // Mock data for report templates - you can implement actual template storage
+    const reportTemplates = [
+      {
+        name: "Orders Summary",
+        description: "Monthly orders summary with trends",
+        type: "orders"
+      },
+      {
+        name: "Product Performance",
+        description: "Product availability and performance metrics",
+        type: "products"
+      },
+      {
+        name: "Inventory Status",
+        description: "Current inventory levels and alerts",
+        type: "inventory"
+      },
+      {
+        name: "Customer Analysis",
+        description: "Customer behavior and preferences",
+        type: "customers"
+      }
+    ];
+
+    res.status(200).json({
+      success: true,
+      data: reportTemplates
+    });
+  } catch (error) {
+    console.error("Report templates error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching report templates",
+      error: error.message
+    });
+  }
+};
+
+// Get report history
+export const getReportHistory = async (req, res) => {
+  try {
+    // Mock data for report history - you can implement actual history storage
+    const reportHistory = [
+      {
+        name: "Orders Report - January 2024",
+        generatedOn: new Date(),
+        status: "completed",
+        size: "2.5 MB"
+      },
+      {
+        name: "Products Report - December 2023",
+        generatedOn: new Date(Date.now() - 2592000000), // 30 days ago
+        status: "completed",
+        size: "1.8 MB"
+      }
+    ];
+
+    res.status(200).json({
+      success: true,
+      data: reportHistory
+    });
+  } catch (error) {
+    console.error("Report history error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching report history",
+      error: error.message
+    });
+  }
+};

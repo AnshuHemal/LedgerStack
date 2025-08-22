@@ -17,6 +17,44 @@ const ProformaInvoiceOverview = () => {
 
   axios.defaults.withCredentials = true;
 
+  // Utility function to determine GST type based on state codes
+  const determineGSTType = (companyGST, accountGST) => {
+    if (!companyGST || !accountGST) return "IGST"; // Default to IGST if GST numbers are missing
+    
+    // Extract state codes (first 2 digits after the first 2 digits which are country code)
+    const companyStateCode = companyGST.substring(2, 4);
+    const accountStateCode = accountGST.substring(2, 4);
+    
+    // If state codes are the same, it's intra-state (CGST+SGST)
+    // If different, it's inter-state (IGST)
+    return companyStateCode === accountStateCode ? "CGST+SGST" : "IGST";
+  };
+
+  // Function to recalculate GST for all products based on current account and delivery party
+  const recalculateGSTForProducts = (formProducts, salesAccount, deliveryPartyAccount) => {
+    const selectedAccount = accounts.find((a) => a._id === salesAccount);
+    const companyGST = selectedAccount?.gstin || "";
+    const accountGST = deliveryPartyAccount?.gst || companyGST;
+    
+    return formProducts.map(product => {
+      if (!product.product) return product; // Skip if no product selected
+      
+      const selectedProduct = products.find((p) => p._id === product.product);
+      if (!selectedProduct) return product;
+      
+      const gst = selectedProduct.gst || 0;
+      const gstType = determineGSTType(companyGST, accountGST);
+      const halfGST = gst / 2;
+      
+      return {
+        ...product,
+        igst: gstType === "IGST" ? gst : null,
+        cgst: gstType === "CGST+SGST" ? halfGST : null,
+        sgst: gstType === "CGST+SGST" ? halfGST : null,
+      };
+    });
+  };
+
   const [form, setForm] = useState({
     cash_debit: "Debit Memo",
     bill_date: new Date().toISOString().split("T")[0],
@@ -180,6 +218,16 @@ const ProformaInvoiceOverview = () => {
           trans_doc_no: `${newBillNo.bill_prefix}${value}`,
         };
       });
+    } else if (name === "sales_account") {
+      // Recalculate GST when sales account changes
+      setForm((prev) => {
+        const updatedProducts = recalculateGSTForProducts(prev.products, value, prev.delivery_party_account);
+        return {
+          ...prev,
+          [name]: value,
+          products: updatedProducts,
+        };
+      });
     } else {
       setForm((prev) => ({ ...prev, [name]: value }));
     }
@@ -188,12 +236,105 @@ const ProformaInvoiceOverview = () => {
   const handleDeliveryPartyChange = (e) => {
     const { name, value } = e.target;
 
-    setForm((prev) => ({
-      ...prev,
-      delivery_party_account: {
+    setForm((prev) => {
+      const updatedDeliveryParty = {
         ...prev.delivery_party_account,
         [name]: value,
-      },
+      };
+      
+      // Recalculate GST when delivery party GST changes
+      const updatedProducts = recalculateGSTForProducts(prev.products, prev.sales_account, updatedDeliveryParty);
+      
+      return {
+        ...prev,
+        delivery_party_account: updatedDeliveryParty,
+        products: updatedProducts,
+      };
+    });
+  };
+
+  const handleCopyDeliveryFromCompany = () => {
+    try {
+      if (!form.sales_account) {
+        toast.error("Please select an Account first");
+        return;
+      }
+      const company = accounts.find((a) => a._id === form.sales_account) || {};
+      const updatedParty = {
+        gst: company.gstin || "",
+        panNo: company.panNo || "",
+        name: company.companyName || "",
+        addressLine1: company.addressLine1 || "",
+        addressLine2: company.addressLine2 || "",
+        addressLine3: company.addressLine3 || "",
+        city: company.city || "",
+        state: company.state || "",
+        pinCode: company.pinCode || "",
+        mobileNo: company.mobileNo || "",
+      };
+      
+      setForm((prev) => {
+        // Recalculate GST after copying delivery party details
+        const updatedProducts = recalculateGSTForProducts(prev.products, prev.sales_account, updatedParty);
+        
+        return {
+          ...prev,
+          delivery_party_account: updatedParty,
+          products: updatedProducts,
+        };
+      });
+      toast.success("Delivery Party set from Company Details");
+    } catch (err) {
+      toast.error("Failed to copy company details");
+    }
+  };
+
+  const resetProformaForm = () => {
+    const today = new Date().toISOString().split("T")[0];
+    const emptyDelivery = {
+      gst: "",
+      panNo: "",
+      name: "",
+      addressLine1: "",
+      addressLine2: "",
+      addressLine3: "",
+      city: "",
+      state: "",
+      pinCode: "",
+      mobileNo: "",
+    };
+    const emptyProduct = {
+      productGroup: "",
+      product: "",
+      boxes: 0,
+      no_of_pcs: 0,
+      quantity: 0,
+      unit: "",
+      rate: 0,
+      igst: 0,
+      cgst: 0,
+      sgst: 0,
+      discount: 0,
+      total_amount: 0,
+    };
+    setForm((prev) => ({
+      ...prev,
+      cash_debit: "Debit Memo",
+      bill_date: today,
+      // keep current bill_no and trans_doc_no set from server when available
+      bill_no: { ...prev.bill_no },
+      sales_account: "",
+      po_no: "",
+      lr_no: "",
+      transportation_account: "",
+      trans_doc_no: prev.trans_doc_no,
+      trans_date: today,
+      delivery_party_account: emptyDelivery,
+      products: [emptyProduct],
+      total_products_amount: 0,
+      freight_amount: 0,
+      final_amount: 0,
+      remarks: "",
     }));
   };
 
@@ -235,6 +376,14 @@ const ProformaInvoiceOverview = () => {
 
       if (selectedProduct) {
         const gst = selectedProduct.gst || 0;
+        
+        // Get company and account GST numbers for state comparison
+        const selectedAccount = accounts.find((a) => a._id === form.sales_account);
+        const companyGST = selectedAccount?.gstin || "";
+        const accountGST = form.delivery_party_account?.gst || companyGST; // Use delivery party GST if available, otherwise company GST
+        
+        // Determine GST type based on state codes
+        const gstType = determineGSTType(companyGST, accountGST);
         const halfGST = gst / 2;
 
         updatedProducts[index] = {
@@ -242,9 +391,9 @@ const ProformaInvoiceOverview = () => {
           product: selectedProduct._id,
           unit: selectedProduct.unit || "",
           rate: selectedProduct.sale_rate || 0,
-          igst: selectedProduct.gst_type === "IGST" ? gst : null,
-          cgst: selectedProduct.gst_type === "CGST+SGST" ? halfGST : null,
-          sgst: selectedProduct.gst_type === "CGST+SGST" ? halfGST : null,
+          igst: gstType === "IGST" ? gst : null,
+          cgst: gstType === "CGST+SGST" ? halfGST : null,
+          sgst: gstType === "CGST+SGST" ? halfGST : null,
         };
       }
     } else {
@@ -917,6 +1066,7 @@ const ProformaInvoiceOverview = () => {
                   type="button"
                   className="post-button"
                   onClick={() => {
+                    resetProformaForm();
                     setShowProformaAddModal(false);
                   }}
                 >
@@ -958,6 +1108,16 @@ const ProformaInvoiceOverview = () => {
               </h5>
             </div>
             <div className="modal-body">
+              <div className="text-end">
+                <button
+                  type="button"
+                  className="post-button text-end mb-3"
+                  onClick={handleCopyDeliveryFromCompany}
+                  title="Copy company account details to Delivery Party"
+                >
+                  Same as Company Details
+                </button>
+              </div>
               <div className="row">
                 <div className="col-md-6">
                   <label htmlFor="name" className="form-label">
@@ -1093,6 +1253,24 @@ const ProformaInvoiceOverview = () => {
                 type="button"
                 className="login-button"
                 data-bs-dismiss="modal"
+                onClick={() => {
+                  // Reset delivery party details when cancelled
+                  setForm((prev) => ({
+                    ...prev,
+                    delivery_party_account: {
+                      gst: "",
+                      panNo: "",
+                      name: "",
+                      addressLine1: "",
+                      addressLine2: "",
+                      addressLine3: "",
+                      city: "",
+                      state: "",
+                      pinCode: "",
+                      mobileNo: "",
+                    },
+                  }));
+                }}
               >
                 Cancel
               </button>

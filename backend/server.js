@@ -452,11 +452,27 @@ app.get("/api/pdf/generate/:entryId", async (req, res) => {
     // Outstanding balance information for invoice entries
     const lastBalance = Number(entry.lastBalance || 0);
     const currentAmt = Number(entry.currentAmt || invoiceTotal);
-    const netBalance = Number(entry.netBalance || (lastBalance + currentAmt));
     
-    html = replace(html, "{{lastBalance}}", lastBalance.toFixed(2));
-    html = replace(html, "{{currentAmt}}", currentAmt.toFixed(2));
-    html = replace(html, "{{netBalance}}", netBalance.toFixed(2));
+    // Calculate net balance based on last balance type
+    let netBalance;
+    if (lastBalance >= 0) {
+      // Last balance is Credit, so net balance = current amt - last balance
+      netBalance = currentAmt - lastBalance;
+    } else {
+      // Last balance is Debit, so net balance = current amt + last balance (last balance is negative)
+      netBalance = currentAmt + lastBalance;
+    }
+    
+    // Format balance with Credit/Debit suffix for last balance and net balance
+    const formatBalanceWithSuffix = (balance) => {
+      const absBalance = Math.abs(balance);
+      const suffix = balance >= 0 ? "Credit" : "Debit";
+      return `${absBalance.toFixed(2)} ${suffix}`;
+    };
+    
+    html = replace(html, "{{lastBalance}}", formatBalanceWithSuffix(lastBalance));
+    html = replace(html, "{{currentAmt}}", `₹${Math.round(currentAmt).toFixed(2)}`);
+    html = replace(html, "{{netBalance}}", formatBalanceWithSuffix(netBalance));
     
     // Update the invoice with outstanding balance information
     if (entry.constructor && entry.constructor.modelName === "SalesInvoice") {

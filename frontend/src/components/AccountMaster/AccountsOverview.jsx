@@ -143,7 +143,8 @@ const AccountsOverview = () => {
     } else {
       try {
         const response = await axios.get(
-          `https://sheet.gstincheck.co.in/check/4b92cef1f48a67fe6b988723b08d4513/${accountFormData.gstin}`
+          `https://sheet.gstincheck.co.in/check/36291eeb6c9ff0f2ce9588c9dcd71521/${accountFormData.gstin}`,
+          { withCredentials: false }
         );
         if (response.data.flag !== true) {
           toast.error(response.data.message);

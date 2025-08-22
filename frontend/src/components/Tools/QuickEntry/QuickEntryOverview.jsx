@@ -100,12 +100,22 @@ const QuickEntryOverview = () => {
 
     setAdding(true);
     try {
-      await axios.post(`${API_URL}/add`, {
+      const response = await axios.post(`${API_URL}/add`, {
         ...form,
         amount: Number(form.amount),
         entryType,
         entryAccount: selectedAccount,
       });
+
+      // Show success message with outstanding balance information if available
+      if (response.data.success && response.data.data.outstandingInfo) {
+        const { lastBalance, currentAmt, netBalance } = response.data.data.outstandingInfo;
+        toast.success(
+          `Entry added successfully! Last Balance: ₹${Math.abs(lastBalance).toFixed(2)} ${lastBalance >= 0 ? 'Credit' : 'Debit'}, Current Amt: ₹${Math.round(currentAmt).toFixed(2)}, Net Balance: ₹${Math.abs(netBalance).toFixed(2)} ${netBalance >= 0 ? 'Credit' : 'Debit'}`
+        );
+      } else {
+        toast.success("Entry added successfully!");
+      }
 
       setForm({
         date: "",
@@ -151,7 +161,7 @@ const QuickEntryOverview = () => {
           >
             <option value="">-- Select Entry Type --</option>
             <option value="Cheque Book">Bank Payment (Cheque Book)</option>
-            <option value="Slip Book">Bank Receipt (Slip Book)</option>
+            <option value="slip book">Bank Receipt (Slip Book)</option>
           </select>
         </div>
 
@@ -182,6 +192,9 @@ const QuickEntryOverview = () => {
               <th>Cheque No.</th>
               <th>Account</th>
               <th>Amount</th>
+              <th>Last Balance</th>
+              <th>Current Amt</th>
+              <th>Net Balance</th>
             </tr>
           </thead>
           <tbody>
@@ -194,11 +207,38 @@ const QuickEntryOverview = () => {
                   <td>{entry.cheque_no || "-"}</td>
                   <td>{entry.account?.companyName || "N/A"}</td>
                   <td>{entry.amount}</td>
+                  <td>
+                    {entry.lastBalance !== undefined ? (
+                      <span className="text-primary">
+                        ₹{Math.abs(entry.lastBalance).toFixed(2)} {entry.lastBalance >= 0 ? 'Credit' : 'Debit'}
+                      </span>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
+                  <td>
+                    {entry.currentAmt !== undefined ? (
+                      <span className="text-success">
+                        ₹{Math.round(entry.currentAmt).toFixed(2)}
+                      </span>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
+                  <td>
+                    {entry.netBalance !== undefined ? (
+                      <span className="text-info">
+                        ₹{Math.abs(entry.netBalance).toFixed(2)} {entry.netBalance >= 0 ? 'Credit' : 'Debit'}
+                      </span>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan="6" className="text-center">
+                <td colSpan="9" className="text-center">
                   No entries to display
                 </td>
               </tr>

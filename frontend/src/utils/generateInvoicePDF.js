@@ -194,20 +194,30 @@ const populateInvoiceData = (container, invoiceData) => {
   // Amount in words
   setElementText(container, "#amount-in-words", numberToWords(roundedTotal));
 
-  // Balance information (sample data - you can modify as needed)
-  const lastBalance = 787793.0; // Sample data
-  const currentAmount = roundedTotal;
-  const netBalance = lastBalance - currentAmount;
+  // Balance information from invoice data
+  const lastBalance = invoiceData.lastBalance || 0;
+  const currentAmount = invoiceData.currentAmt || roundedTotal;
+  
+  // Calculate net balance based on last balance type
+  let netBalance;
+  if (lastBalance >= 0) {
+    // Last balance is Credit, so net balance = current amt - last balance
+    netBalance = currentAmount - lastBalance;
+  } else {
+    // Last balance is Debit, so net balance = current amt + last balance (last balance is negative)
+    netBalance = currentAmount + lastBalance;
+  }
 
-  setElementText(container, "#last-balance", `₹${lastBalance.toFixed(2)}`);
-  setElementText(container, "#current-amount", `₹${currentAmount.toFixed(2)}`);
-  setElementText(
-    container,
-    "#net-balance",
-    `₹${Math.abs(netBalance).toFixed(2)} ${
-      netBalance >= 0 ? "Credit" : "Debit"
-    }`
-  );
+  // Format balance with Credit/Debit suffix for last balance and net balance
+  const formatBalanceWithSuffix = (balance) => {
+    const absBalance = Math.abs(balance);
+    const suffix = balance >= 0 ? "Credit" : "Debit";
+    return `₹${absBalance.toFixed(2)} ${suffix}`;
+  };
+
+  setElementText(container, "#last-balance", formatBalanceWithSuffix(lastBalance));
+  setElementText(container, "#current-amount", `₹${Math.round(currentAmount).toFixed(2)}`);
+  setElementText(container, "#net-balance", formatBalanceWithSuffix(netBalance));
 };
 
 // Function to populate products table

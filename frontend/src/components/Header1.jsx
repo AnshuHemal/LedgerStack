@@ -248,7 +248,7 @@ const Header1 = () => {
               </li>
 
               {/* Ledger Dropdown */}
-              <li className="nav-item dropdown">
+              {/* <li className="nav-item dropdown">
                 <a className="nav-link mx-lg-2" href="#">
                   Ledger
                 </a>
@@ -274,7 +274,7 @@ const Header1 = () => {
                     </NavLink>
                   </li>
                 </ul>
-              </li>
+              </li> */}
             </ul>
           </div>
         </div>
@@ -343,18 +343,6 @@ const Header1 = () => {
                 </div>
               </div>
               <div className="dropdown-divider mb-2" />
-
-              <NavLink
-                to="/profile"
-                className="dropdown-item align-items-center"
-                onClick={closeDropdown}
-              >
-                <LuCircleUser
-                  style={{ width: "20px", height: "18px" }}
-                  className="me-2"
-                />{" "}
-                Your Profile
-              </NavLink>
               <NavLink
                 to="/preferences"
                 className="dropdown-item"
@@ -364,7 +352,7 @@ const Header1 = () => {
                   style={{ width: "20px", height: "18px" }}
                   className="me-2"
                 />
-                Account settings
+                Profile & Account settings
               </NavLink>
 
               <div className="dropdown-divider my-2" />

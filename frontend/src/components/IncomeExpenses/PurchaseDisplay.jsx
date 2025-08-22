@@ -470,7 +470,7 @@ const PurchaseDisplay = () => {
                 >
                   <thead>
                     <tr>
-                      <th>Product Group</th>
+                      <th>Group</th>
                       <th>Product</th>
                       <th>Qty</th>
                       <th>Unit</th>
@@ -719,13 +719,6 @@ const PurchaseDisplay = () => {
                   onClick={handleEdit}
                 >
                   Save
-                </button>
-                <button
-                  type="button"
-                  className="login-button"
-                  onClick={handleEdit}
-                >
-                  Save & Print
                 </button>
                 <button
                   type="button"

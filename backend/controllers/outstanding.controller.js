@@ -120,3 +120,55 @@ export const getOutstandingBalance = async (req, res) => {
     });
   }
 };
+
+export const getAccountOutstandingBalance = async (req, res) => {
+  try {
+    const { accountId } = req.params;
+    const { type } = req.query; // 'payable' or 'receivable'
+    
+    if (type === 'payable') {
+      const latestPayable = await OutstandingPayable.findOne(
+        { account: accountId, createdBy: req.user.userId },
+        {},
+        { sort: { date: -1 } }
+      );
+      
+      const balance = latestPayable ? latestPayable.balance : 0;
+      
+      res.status(200).json({
+        success: true,
+        data: {
+          balance,
+          balanceType: balance >= 0 ? 'Credit' : 'Debit'
+        }
+      });
+    } else if (type === 'receivable') {
+      const latestReceivable = await OutstandingReceivable.findOne(
+        { account: accountId, createdBy: req.user.userId },
+        {},
+        { sort: { date: -1 } }
+      );
+      
+      const balance = latestReceivable ? latestReceivable.balance : 0;
+      
+      res.status(200).json({
+        success: true,
+        data: {
+          balance,
+          balanceType: balance >= 0 ? 'Credit' : 'Debit'
+        }
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        message: 'Type parameter is required (payable or receivable)'
+      });
+    }
+  } catch (err) {
+    console.error("Error fetching account outstanding balance:", err);
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+  }
+};

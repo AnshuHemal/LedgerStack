@@ -56,7 +56,23 @@ const OrdersOverview = () => {
       const response = await axios.get(`${ORDERS_URL}`, {
         withCredentials: true,
       });
-      setOrders(response.data.data || []);
+      // As a safety net, derive status in UI in case backend didn't persist recomputed status yet
+      const deriveStatus = (products = []) => {
+        const statuses = (products || []).map((p) => (p?.status || "pending").toLowerCase());
+        if (statuses.length === 0) return "pending";
+        if (statuses.every((s) => s === "delivered")) return "delivered";
+        if (statuses.every((s) => s === "shipped" || s === "delivered")) return "shipped";
+        if (statuses.every((s) => ["ready", "shipped", "delivered"].includes(s))) return "ready";
+        if (statuses.some((s) => s === "in_production")) return "in_production";
+        if (statuses.some((s) => s === "confirmed")) return "confirmed";
+        return "pending";
+      };
+
+      const normalized = (response.data.data || []).map((o) => ({
+        ...o,
+        status: deriveStatus(o.products) || o.status || "pending",
+      }));
+      setOrders(normalized);
     } catch (error) {
       console.error("Failed to fetch orders:", error);
       toast.error("Failed to fetch orders data");

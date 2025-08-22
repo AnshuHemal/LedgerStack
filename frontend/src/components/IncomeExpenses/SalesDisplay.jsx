@@ -12,6 +12,7 @@ const SalesInvoicesDisplay = () => {
   const [transportations, setTransportations] = useState([]);
   const [products, setProducts] = useState([]);
   const [productGroups, setProductGroups] = useState([]);
+  const [accounts, setAccounts] = useState([]);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState(null);
 
   const [formData, setFormData] = useState({
@@ -67,6 +68,44 @@ const SalesInvoicesDisplay = () => {
 
   axios.defaults.withCredentials = true;
 
+  // Utility function to determine GST type based on state codes
+  const determineGSTType = (companyGST, accountGST) => {
+    if (!companyGST || !accountGST) return "IGST"; // Default to IGST if GST numbers are missing
+    
+    // Extract state codes (first 2 digits after the first 2 digits which are country code)
+    const companyStateCode = companyGST.substring(2, 4);
+    const accountStateCode = accountGST.substring(2, 4);
+    
+    // If state codes are the same, it's intra-state (CGST+SGST)
+    // If different, it's inter-state (IGST)
+    return companyStateCode === accountStateCode ? "CGST+SGST" : "IGST";
+  };
+
+  // Function to recalculate GST for all products based on current account and delivery party
+  const recalculateGSTForProducts = (formProducts, salesAccount, deliveryPartyAccount) => {
+    const selectedAccount = accounts.find((a) => a._id === salesAccount);
+    const companyGST = selectedAccount?.gstin || "";
+    const accountGST = deliveryPartyAccount?.gst || companyGST;
+    
+    return formProducts.map(product => {
+      if (!product.product) return product; // Skip if no product selected
+      
+      const selectedProduct = products.find((p) => p._id === product.product);
+      if (!selectedProduct) return product;
+      
+      const gst = selectedProduct.gst || 0;
+      const gstType = determineGSTType(companyGST, accountGST);
+      const halfGST = gst / 2;
+      
+      return {
+        ...product,
+        igst: gstType === "IGST" ? gst : null,
+        cgst: gstType === "CGST+SGST" ? halfGST : null,
+        sgst: gstType === "CGST+SGST" ? halfGST : null,
+      };
+    });
+  };
+
   const API_URL = import.meta.env.VITE_INCOME_EXPENSES_URL;
   const PRODUCT_URL = import.meta.env.VITE_PRODUCT_URL;
 
@@ -96,12 +135,16 @@ const SalesInvoicesDisplay = () => {
 
   const fetchData = async () => {
     try {
-      const transportationRes = await axios.get(`${API_URL}/transportation`);
-      const productRes = await axios.get(`${PRODUCT_URL}/`);
-      const productGroupRes = await axios.get(`${PRODUCT_URL}/product-group`);
+      const [transportationRes, productRes, productGroupRes, accountRes] = await Promise.all([
+        axios.get(`${API_URL}/transportation`),
+        axios.get(`${PRODUCT_URL}/`),
+        axios.get(`${PRODUCT_URL}/product-group`),
+        axios.get(`${PRODUCT_URL.replace('/product', '/account')}/account-master`)
+      ]);
       setTransportations(transportationRes.data.data);
       setProducts(productRes.data);
       setProductGroups(productGroupRes.data);
+      setAccounts(accountRes.data);
     } catch (error) {
       console.error("Error fetching meta data:", error);
     }
@@ -124,11 +167,25 @@ const SalesInvoicesDisplay = () => {
 
   // Recalculate outstanding balance when final amount changes
   useEffect(() => {
-    if (formData.lastBalance !== undefined && formData.final_amount !== undefined) {
-      setFormData(prev => ({
+    if (
+      formData.lastBalance !== undefined &&
+      formData.final_amount !== undefined
+    ) {
+      const currentAmt = formData.final_amount;
+      let netBalance;
+
+      if (formData.lastBalance >= 0) {
+        // Last balance is Credit, so net balance = current amt - last balance
+        netBalance = currentAmt - formData.lastBalance;
+      } else {
+        // Last balance is Debit, so net balance = current amt + last balance (last balance is negative)
+        netBalance = currentAmt + formData.lastBalance;
+      }
+
+      setFormData((prev) => ({
         ...prev,
-        currentAmt: prev.final_amount,
-        netBalance: prev.lastBalance + prev.final_amount
+        currentAmt: currentAmt,
+        netBalance: netBalance,
       }));
     }
   }, [formData.final_amount, formData.lastBalance]);
@@ -219,30 +276,46 @@ const SalesInvoicesDisplay = () => {
 
   const fetchOutstandingBalance = async (accountId) => {
     if (!accountId) return;
-    
+
     try {
-      const res = await axios.get(`http://localhost:5000/api/outstanding/balance/${accountId}`, {
-        withCredentials: true,
-      });
-      
+      const res = await axios.get(
+        `http://localhost:5000/api/outstanding/account/${accountId}?type=receivable`,
+        {
+          withCredentials: true,
+        }
+      );
+
       if (res.data.success) {
         // For Sales Invoice, we use receivable balance
-        const lastBalance = res.data.data.receivableBalance || 0;
-        setFormData(prev => ({
+        const lastBalance = res.data.data.balance || 0;
+        const currentAmt = formData.final_amount || 0;
+
+        // Calculate net balance based on last balance type
+        let netBalance;
+        if (lastBalance >= 0) {
+          // Last balance is Credit, so net balance = current amt - last balance
+          netBalance = currentAmt - lastBalance;
+        } else {
+          // Last balance is Debit, so net balance = current amt + last balance (last balance is negative)
+          netBalance = currentAmt + lastBalance;
+        }
+
+        setFormData((prev) => ({
           ...prev,
           lastBalance: lastBalance,
-          currentAmt: prev.final_amount || 0,
-          netBalance: lastBalance + (prev.final_amount || 0)
+          currentAmt: currentAmt,
+          netBalance: netBalance,
         }));
       }
     } catch (error) {
       console.error("Error fetching outstanding balance:", error);
       // Set default values if fetch fails
-      setFormData(prev => ({
+      const currentAmt = formData.final_amount || 0;
+      setFormData((prev) => ({
         ...prev,
         lastBalance: 0,
-        currentAmt: prev.final_amount || 0,
-        netBalance: prev.final_amount || 0
+        currentAmt: currentAmt,
+        netBalance: currentAmt,
       }));
     }
   };
@@ -266,8 +339,15 @@ const SalesInvoicesDisplay = () => {
         };
       });
     } else if (name === "sales_account") {
-      // When sales account changes, fetch outstanding balance
-      setFormData((prev) => ({ ...prev, [name]: value }));
+      // When sales account changes, fetch outstanding balance and recalculate GST
+      setFormData((prev) => {
+        const updatedProducts = recalculateGSTForProducts(prev.products, value, prev.delivery_party_account);
+        return {
+          ...prev,
+          [name]: value,
+          products: updatedProducts,
+        };
+      });
       fetchOutstandingBalance(value);
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
@@ -315,20 +395,35 @@ const SalesInvoicesDisplay = () => {
       prod.sgst !== null ? prod.sgst : 0;
     });
     formData.total_products_amount = final_amount;
-    
+
     // Calculate outstanding balance for Sales Invoice entries
     if (formData.cash_debit === "Debit Memo") {
       // For Sales Invoice - track in Outstanding Receivable
       formData.currentAmt = final_amount;
-      // Debit entry increases the balance (money owed by customer)
-      formData.netBalance = formData.lastBalance + formData.currentAmt;
+
+      // Calculate net balance based on last balance type
+      if (formData.lastBalance >= 0) {
+        // Last balance is Credit, so net balance = current amt - last balance
+        formData.netBalance = formData.currentAmt - formData.lastBalance;
+      } else {
+        // Last balance is Debit, so net balance = current amt + last balance (last balance is negative)
+        formData.netBalance = formData.currentAmt + formData.lastBalance;
+      }
+    } else if (formData.cash_debit === "Cash Memo") {
+      // For Cash Memo - no outstanding balance tracking
+      formData.currentAmt = final_amount;
+      formData.netBalance = formData.lastBalance; // No change to outstanding balance
     }
-    
+
     formData.trans_doc_no =
       formData.bill_no.bill_prefix + "" + formData.bill_no.no;
     // Use actual Date objects to avoid locale parsing issues on server
-    formData.trans_date = formData.trans_date ? new Date(formData.trans_date) : null;
-    formData.bill_date = formData.bill_date ? new Date(formData.bill_date) : null;
+    formData.trans_date = formData.trans_date
+      ? new Date(formData.trans_date)
+      : null;
+    formData.bill_date = formData.bill_date
+      ? new Date(formData.bill_date)
+      : null;
 
     try {
       const updateResp = await axios.put(
@@ -427,6 +522,14 @@ const SalesInvoicesDisplay = () => {
 
       if (selectedProduct) {
         const gst = selectedProduct.gst || 0;
+        
+        // Get company and account GST numbers for state comparison
+        const selectedAccount = accounts.find((a) => a._id === formData.sales_account);
+        const companyGST = selectedAccount?.gstin || "";
+        const accountGST = formData.delivery_party_account?.gst || companyGST; // Use delivery party GST if available, otherwise company GST
+        
+        // Determine GST type based on state codes
+        const gstType = determineGSTType(companyGST, accountGST);
         const halfGST = gst / 2;
 
         updatedProducts[index] = {
@@ -434,9 +537,9 @@ const SalesInvoicesDisplay = () => {
           product: selectedProduct._id,
           unit: selectedProduct.unit || "",
           rate: selectedProduct.sale_rate || 0,
-          igst: selectedProduct.gst_type === "IGST" ? gst : null,
-          cgst: selectedProduct.gst_type === "CGST+SGST" ? halfGST : null,
-          sgst: selectedProduct.gst_type === "CGST+SGST" ? halfGST : null,
+          igst: gstType === "IGST" ? gst : null,
+          cgst: gstType === "CGST+SGST" ? halfGST : null,
+          sgst: gstType === "CGST+SGST" ? halfGST : null,
         };
       }
     } else {
@@ -495,18 +598,27 @@ const SalesInvoicesDisplay = () => {
   const handleDeliveryPartyChange = (e) => {
     const { name, value } = e.target;
 
-    setFormData((prev) => ({
-      ...prev,
-      delivery_party_account: {
+    setFormData((prev) => {
+      const updatedDeliveryParty = {
         ...prev.delivery_party_account,
         [name]: value,
-      },
-    }));
+      };
+      
+      // Recalculate GST when delivery party GST changes
+      const updatedProducts = recalculateGSTForProducts(prev.products, prev.sales_account, updatedDeliveryParty);
+      
+      return {
+        ...prev,
+        delivery_party_account: updatedDeliveryParty,
+        products: updatedProducts,
+      };
+    });
   };
 
   const handleCopyDeliveryFromCompany = () => {
     try {
-      const company = formData.sales_account || {};
+      const selectedAccount = accounts.find((a) => a._id === formData.sales_account);
+      const company = selectedAccount || {};
       const updatedParty = {
         gst: company.gstin || "",
         panNo: company.panNo || "",
@@ -519,10 +631,17 @@ const SalesInvoicesDisplay = () => {
         pinCode: company.pinCode || "",
         mobileNo: company.mobileNo || "",
       };
-      setFormData((prev) => ({
-        ...prev,
-        delivery_party_account: updatedParty,
-      }));
+      
+      setFormData((prev) => {
+        // Recalculate GST after copying delivery party details
+        const updatedProducts = recalculateGSTForProducts(prev.products, prev.sales_account, updatedParty);
+        
+        return {
+          ...prev,
+          delivery_party_account: updatedParty,
+          products: updatedProducts,
+        };
+      });
       toast.success("Delivery Party set from Company Details");
     } catch (err) {
       toast.error("Failed to copy company details");
@@ -1024,39 +1143,6 @@ const SalesInvoicesDisplay = () => {
                       </td>
                       <td>{parseFloat(formData.final_amount).toFixed(2)}</td>
                     </tr>
-                    
-                    {/* Outstanding Balance Information for Sales Invoice */}
-                    <tr style={{ backgroundColor: '#f8f9fa' }}>
-                      <td colSpan="11">
-                        <div className="row">
-                          <div className="col-md-4">
-                            <div className="d-flex justify-content-between">
-                              <span className="fw-bold">Last Balance:</span>
-                              <span className="text-primary">₹{formData.lastBalance.toFixed(2)}</span>
-                            </div>
-                          </div>
-                          <div className="col-md-4">
-                            <div className="d-flex justify-content-between">
-                              <span className="fw-bold">Current Amt:</span>
-                              <span className="text-success">₹{formData.currentAmt.toFixed(2)}</span>
-                            </div>
-                          </div>
-                          <div className="col-md-4">
-                            <div className="d-flex justify-content-between">
-                              <span className="fw-bold">Net Balance:</span>
-                              <span className="text-info">₹{formData.netBalance.toFixed(2)}</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="row mt-2">
-                          <div className="col-12">
-                            <small className="text-muted">
-                              <strong>Note:</strong> Debit entry increases outstanding balance (money owed by customer)
-                            </small>
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
                   </tbody>
                 </table>
                 {isLastProductRowValid() && (
@@ -1089,8 +1175,14 @@ const SalesInvoicesDisplay = () => {
               <div className="d-flex gap-3 align-items-center w-100 justify-content-end">
                 {isGeneratingPdf && (
                   <div className="d-flex align-items-center gap-2 me-auto">
-                    <div className="progress" style={{ width: "180px", height: "6px" }}>
-                      <div className="progress-bar progress-bar-striped progress-bar-animated" style={{ width: "100%" }} />
+                    <div
+                      className="progress"
+                      style={{ width: "180px", height: "6px" }}
+                    >
+                      <div
+                        className="progress-bar progress-bar-striped progress-bar-animated"
+                        style={{ width: "100%" }}
+                      />
                     </div>
                     <small>Generating PDF...</small>
                   </div>
@@ -1149,14 +1241,16 @@ const SalesInvoicesDisplay = () => {
               </h5>
             </div>
             <div className="modal-body">
-              <button
-                type="button"
-                className="post-button"
-                onClick={handleCopyDeliveryFromCompany}
-                title="Copy company account details to Delivery Party"
-              >
-                Same as Company Details
-              </button>
+              <div className="text-end">
+                <button
+                  type="button"
+                  className="post-button text-end mb-3"
+                  onClick={handleCopyDeliveryFromCompany}
+                  title="Copy company account details to Delivery Party"
+                >
+                  Same as Company Details
+                </button>
+              </div>
               <div className="row">
                 <div className="col-md-6">
                   <label htmlFor="name" className="form-label">

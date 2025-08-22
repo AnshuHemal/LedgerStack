@@ -1,4 +1,5 @@
 import Sku from "../models/sku.model.js";
+import mongoose from "mongoose";
 
 // Create SKU
 export const createSku = async (req, res) => {
@@ -11,6 +12,44 @@ export const createSku = async (req, res) => {
       return res.status(400).json({
         message: "Location already exists. Please choose a different location.",
       });
+    }
+
+    // Server-side validation: prevent saving if any selected subpart is currently in an Unallocated location
+    const selectedSubpartIds = new Set(
+      (products || [])
+        .flatMap((p) => p?.parts || [])
+        .map((pt) => String(pt.subpartId))
+        .filter(Boolean)
+    );
+
+    if (selectedSubpartIds.size > 0) {
+      const unallocatedWithSelected = await Sku.aggregate([
+        {
+          $match: {
+            createdBy: new mongoose.Types.ObjectId(req.user.userId),
+            location: { $regex: /^Unallocated/i },
+            products: { $exists: true, $ne: [] },
+          },
+        },
+        { $unwind: "$products" },
+        { $unwind: "$products.parts" },
+        {
+          $match: {
+            "products.parts.subpartId": { $in: Array.from(selectedSubpartIds).map((id) => new mongoose.Types.ObjectId(id)) },
+          },
+        },
+        {
+          $group: { _id: null, subpartIds: { $addToSet: "$products.parts.subpartId" } },
+        },
+      ]);
+
+      if (unallocatedWithSelected && unallocatedWithSelected.length > 0) {
+        return res.status(400).json({
+          message:
+            "Some selected subparts are unallocated. Please allocate locations before saving.",
+          data: { unallocatedSubpartIds: unallocatedWithSelected[0].subpartIds },
+        });
+      }
     }
 
     const skuData = {
@@ -124,6 +163,44 @@ export const updateSku = async (req, res) => {
     const skuId = req.params.id;
     const createdBy = req.user.userId;
     const updateData = req.body;
+
+    // Server-side validation: prevent saving if any selected subpart is currently in an Unallocated location
+    const selectedSubpartIds = new Set(
+      (updateData.products || [])
+        .flatMap((p) => p?.parts || [])
+        .map((pt) => String(pt.subpartId))
+        .filter(Boolean)
+    );
+
+    if (selectedSubpartIds.size > 0) {
+      const unallocatedWithSelected = await Sku.aggregate([
+        {
+          $match: {
+            createdBy: new mongoose.Types.ObjectId(createdBy),
+            location: { $regex: /^Unallocated/i },
+            products: { $exists: true, $ne: [] },
+          },
+        },
+        { $unwind: "$products" },
+        { $unwind: "$products.parts" },
+        {
+          $match: {
+            "products.parts.subpartId": { $in: Array.from(selectedSubpartIds).map((id) => new mongoose.Types.ObjectId(id)) },
+          },
+        },
+        {
+          $group: { _id: null, subpartIds: { $addToSet: "$products.parts.subpartId" } },
+        },
+      ]);
+
+      if (unallocatedWithSelected && unallocatedWithSelected.length > 0) {
+        return res.status(400).json({
+          message:
+            "Some selected subparts are unallocated. Please allocate locations before saving.",
+          data: { unallocatedSubpartIds: unallocatedWithSelected[0].subpartIds },
+        });
+      }
+    }
 
     const sku = await Sku.findOneAndUpdate(
       { _id: skuId, createdBy },

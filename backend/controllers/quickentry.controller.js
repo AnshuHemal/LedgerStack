@@ -48,18 +48,26 @@ export const addQuickEntries = async (req, res) => {
     await newEntry.save();
 
     // Handle Slip Book and Cheque entries for outstanding balance tracking
-    if (entryType === "Slip Book") {
+    if (entryType === "slip book") {
       try {
         // For Slip Book entries - show CREDIT entry in Outstanding Payable (money going out to suppliers)
         const lastPayableEntry = await OutstandingPayable.findOne(
-          { account: account },
+          { account: account, createdBy: req.user.userId },
           {},
           { sort: { date: -1 } }
         );
         const lastBalance = lastPayableEntry ? lastPayableEntry.balance : 0;
         
         // Credit entry reduces the payable balance (money going out to suppliers)
-        const netBalance = lastBalance - amount;
+        // Calculate net balance based on last balance type
+        let netBalance;
+        if (lastBalance >= 0) {
+          // Last balance is Credit, so net balance = current amt - last balance
+          netBalance = amount - lastBalance;
+        } else {
+          // Last balance is Debit, so net balance = current amt + last balance (last balance is negative)
+          netBalance = amount + lastBalance;
+        }
         
         // Create new Outstanding Payable entry with CREDIT
         const newPayableEntry = new OutstandingPayable({
@@ -89,7 +97,7 @@ export const addQuickEntries = async (req, res) => {
       try {
         // For Cheque entries - show DEBIT entry in Outstanding Receivable (money coming in from customers)
         const lastReceivableEntry = await OutstandingReceivable.findOne(
-          { account: account },
+          { account: account, createdBy: req.user.userId },
           {},
           { sort: { date: -1 } }
         );
@@ -126,14 +134,22 @@ export const addQuickEntries = async (req, res) => {
       try {
         // For Purchase Slip Book entries - show CREDIT entry in Outstanding Payable (money going out to suppliers)
         const lastPayableEntry = await OutstandingPayable.findOne(
-          { account: account },
+          { account: account, createdBy: req.user.userId },
           {},
           { sort: { date: -1 } }
         );
         const lastBalance = lastPayableEntry ? lastPayableEntry.balance : 0;
         
         // Credit entry reduces the payable balance (money going out to suppliers)
-        const netBalance = lastBalance - amount;
+        // Calculate net balance based on last balance type
+        let netBalance;
+        if (lastBalance >= 0) {
+          // Last balance is Credit, so net balance = current amt - last balance
+          netBalance = amount - lastBalance;
+        } else {
+          // Last balance is Debit, so net balance = current amt + last balance (last balance is negative)
+          netBalance = amount + lastBalance;
+        }
         
         // Create new Outstanding Payable entry with CREDIT
         const newPayableEntry = new OutstandingPayable({
@@ -167,7 +183,7 @@ export const addQuickEntries = async (req, res) => {
         message: "Entry added successfully.",
         data: {
           entry: newEntry,
-          outstandingInfo: (entryType === "Slip Book" || entryType === "Cheque" || entryType === "Purchase Slip Book") ? {
+          outstandingInfo: (entryType === "slip book" || entryType === "Cheque" || entryType === "Purchase Slip Book") ? {
             lastBalance: newEntry.lastBalance,
             currentAmt: newEntry.currentAmt,
             netBalance: newEntry.netBalance
