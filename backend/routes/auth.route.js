@@ -70,7 +70,37 @@ router.post("/signup", async (req, res) => {
       message: "Account successfully created.. OTP sent to your email.",
     });
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message });
+    console.error("Signup error:", error);
+    
+    // Handle specific MongoDB timeout errors
+    if (error.message && error.message.includes('timed out')) {
+      return res.status(500).json({ 
+        success: false, 
+        message: "Database connection timeout. Please try again." 
+      });
+    }
+    
+    // Handle duplicate key errors
+    if (error.code === 11000) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Account already exists with this email." 
+      });
+    }
+    
+    // Handle other database errors
+    if (error.name === 'MongoError' || error.name === 'MongooseError') {
+      return res.status(500).json({ 
+        success: false, 
+        message: "Database error. Please try again later." 
+      });
+    }
+    
+    res.status(500).json({ 
+      success: false, 
+      message: "Signup failed. Please try again.",
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
   }
 });
 
@@ -105,7 +135,9 @@ router.post("/login", async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    const user = await User.findOne({ email });
+    // Add timeout to the database query
+    const user = await User.findOne({ email }).maxTimeMS(5000);
+    
     if (!user) {
       return res
         .status(400)
@@ -134,7 +166,29 @@ router.post("/login", async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message });
+    console.error("Login error:", error);
+    
+    // Handle specific MongoDB timeout errors
+    if (error.message && error.message.includes('timed out')) {
+      return res.status(500).json({ 
+        success: false, 
+        message: "Database connection timeout. Please try again." 
+      });
+    }
+    
+    // Handle other database errors
+    if (error.name === 'MongoError' || error.name === 'MongooseError') {
+      return res.status(500).json({ 
+        success: false, 
+        message: "Database error. Please try again later." 
+      });
+    }
+    
+    res.status(500).json({ 
+      success: false, 
+      message: "Login failed. Please try again.",
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
   }
 });
 

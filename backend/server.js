@@ -37,15 +37,51 @@ const PORT = process.env.PORT || 5000;
 app.use(cookieParser());
 app.use(
   cors({
-    origin: "https://ledgerstack.vercel.app",
+    origin: process.env.FRONTEND_URL || "https://ledgerstack.vercel.app",
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
+    optionsSuccessStatus: 200
   })
 );
 
 app.options("*", cors());
 
+// Health check endpoint
+app.get("/api/health", async (req, res) => {
+  try {
+    await connectDB();
+    res.json({ 
+      success: true, 
+      message: "Server is healthy",
+      timestamp: new Date().toISOString(),
+      database: "connected"
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      message: "Server health check failed",
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 app.use(express.json());
+
+// Database connection middleware
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (error) {
+    console.error('Database connection error in middleware:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Database connection failed',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
+});
 
 // Serve static assets from public (including generated PDFs under /pdfs)
 app.use(express.static(path.join(__dirname, "../public")));
@@ -642,7 +678,13 @@ app.get("/api/pdf/:entryId", async (req, res) => {
   }
 });
 
+// Initialize database connection
+connectDB().then(() => {
+  console.log("Database connection established");
+}).catch((error) => {
+  console.error("Failed to connect to database:", error);
+});
+
 app.listen(PORT, () => {
-  connectDB();
   console.log(`Server is running on PORT ${PORT}`);
 });
