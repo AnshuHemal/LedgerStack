@@ -70,7 +70,7 @@ export const connectDB = async (retryCount = 0) => {
 
       return mongoose.connection;
       
-    } catch (error) {
+  } catch (error) {
       console.error(`Failed to connect to MongoDB (attempt ${retryCount + 1}):`, error.message);
       
       // Reset connection state
