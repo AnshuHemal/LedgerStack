@@ -219,7 +219,7 @@ const verifyToken = (req, res, next) => {
     return res.status(403).json({ message: "Authentication required." });
   }
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+  jwt.verify(token, "whiteturtleworkspace", (err, decoded) => {
     if (err) {
       return res.status(403).json({ message: "Invalid token." });
     }
