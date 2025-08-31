@@ -7,7 +7,7 @@ export const generateTokenAndSetCookie = async (res, userId) => {
 
   res.cookie("access_token", token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production", // only HTTPS in prod
+    secure: true, // only HTTPS in prod
     sameSite: "None", // required for cross-site
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   });
