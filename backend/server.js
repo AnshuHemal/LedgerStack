@@ -49,35 +49,52 @@ app.options("*", cors());
 // Health check endpoint
 app.get("/api/health", async (req, res) => {
   try {
+    const startTime = Date.now();
     await connectDB();
+    const connectionTime = Date.now() - startTime;
+    
     res.json({ 
       success: true, 
       message: "Server is healthy",
       timestamp: new Date().toISOString(),
-      database: "connected"
+      database: "connected",
+      connectionTime: `${connectionTime}ms`,
+      environment: process.env.NODE_ENV || 'development'
     });
   } catch (error) {
     res.status(500).json({ 
       success: false, 
       message: "Server health check failed",
       error: error.message,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development'
     });
   }
 });
 
 app.use(express.json());
 
-// Database connection middleware
+// Database connection middleware with timeout
 app.use(async (req, res, next) => {
   try {
+    // Set a timeout for database connection
+    const connectionTimeout = setTimeout(() => {
+      console.error('Database connection timeout');
+      res.status(500).json({ 
+        success: false, 
+        message: 'Database connection timeout. Please try again.',
+        error: 'connection_timeout'
+      });
+    }, 5000); // 5 second timeout
+
     await connectDB();
+    clearTimeout(connectionTimeout);
     next();
   } catch (error) {
     console.error('Database connection error in middleware:', error);
     res.status(500).json({ 
       success: false, 
-      message: 'Database connection failed',
+      message: 'Database connection failed. Please try again.',
       error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
   }

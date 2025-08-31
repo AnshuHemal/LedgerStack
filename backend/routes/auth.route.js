@@ -12,7 +12,12 @@ router.post("/signup", async (req, res) => {
   const { fullname, email, password, companyDetails } = req.body;
 
   try {
-    const userAlreadyExists = await User.findOne({ email });
+    const userAlreadyExists = await Promise.race([
+      User.findOne({ email }).maxTimeMS(3000),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Database query timeout')), 3000)
+      )
+    ]);
     if (userAlreadyExists) {
       return res
         .status(400)
@@ -135,8 +140,13 @@ router.post("/login", async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    // Add timeout to the database query
-    const user = await User.findOne({ email }).maxTimeMS(5000);
+    // Add timeout to the database query with better error handling
+    const user = await Promise.race([
+      User.findOne({ email }).maxTimeMS(3000),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Database query timeout')), 3000)
+      )
+    ]);
     
     if (!user) {
       return res
