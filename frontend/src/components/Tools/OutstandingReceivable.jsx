@@ -79,7 +79,6 @@ const OutstandingReceivable = () => {
                         className="btn btn-sm btn-outline-primary"
                         onClick={() => {
                           // Show detailed entries for this account
-                          console.log("Entries for account:", item.entries);
                         }}
                       >
                         View Details

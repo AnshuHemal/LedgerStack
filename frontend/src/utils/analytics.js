@@ -4,7 +4,6 @@ import { track } from '@vercel/analytics';
 export const trackEvent = (eventName, properties = {}) => {
   try {
     track(eventName, properties);
-    console.log(`Analytics event tracked: ${eventName}`, properties);
   } catch (error) {
     console.error('Analytics tracking error:', error);
   }
