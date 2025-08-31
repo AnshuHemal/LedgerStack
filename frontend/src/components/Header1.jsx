@@ -15,7 +15,7 @@ const Header1 = () => {
   const [loading, setLoading] = useState(true);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
-  const API_URL = "http://localhost:5000/api/auth";
+  const API_URL = "https://ledgerstack-backend.vercel.app/api/auth";
 
   // Add CSS animation for spinner
   React.useEffect(() => {

@@ -9,7 +9,7 @@ export const RefreshHandler = ({ setIsAuthenticated }) => {
   useEffect(() => {
     const checkAuthentication = async () => {
       try {
-        const response = await axios.get("http://localhost:5000/api/auth/verify", {
+        const response = await axios.get("https://ledgerstack-backend.vercel.app/api/auth/verify", {
           withCredentials: true, 
         });
 

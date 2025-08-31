@@ -36,7 +36,7 @@ const ProductionUnitOverview = () => {
   // Selected product details for auto-fill
   const [selectedProductDetails, setSelectedProductDetails] = useState(null);
 
-  const API_BASE = "http://localhost:5000/api";
+  const API_BASE = "https://ledgerstack-backend.vercel.app/api";
   const PRODUCTION_UNIT_URL = `${API_BASE}/production-unit`;
   const PRODUCT_URL = `${API_BASE}/product`;
   const SUBPARTS_URL = `${API_BASE}/subparts`;

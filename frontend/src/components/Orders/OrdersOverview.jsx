@@ -39,9 +39,9 @@ const OrdersOverview = () => {
     priority: "medium",
   });
 
-  const ACCOUNT_URL = "http://localhost:5000/api/account";
-  const PRODUCT_URL = "http://localhost:5000/api/product";
-  const ORDERS_URL = "http://localhost:5000/api/orders";
+  const ACCOUNT_URL = "https://ledgerstack-backend.vercel.app/api/account";
+  const PRODUCT_URL = "https://ledgerstack-backend.vercel.app/api/product";
+  const ORDERS_URL = "https://ledgerstack-backend.vercel.app/api/orders";
 
   useEffect(() => {
     fetchOrders();

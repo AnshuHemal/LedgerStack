@@ -17,7 +17,7 @@ const Login = () => {
 
   const navigate = useNavigate();
 
-  const API_URL = "http://localhost:5000/api/auth";
+  const API_URL = "https://ledgerstack-backend.vercel.app/api/auth";
 
   const handleShowPassword = () => {
     setShowPassword(!showPassword);

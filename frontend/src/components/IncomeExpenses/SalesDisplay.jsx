@@ -279,7 +279,7 @@ const SalesInvoicesDisplay = () => {
 
     try {
       const res = await axios.get(
-        `http://localhost:5000/api/outstanding/account/${accountId}?type=receivable`,
+        `https://ledgerstack-backend.vercel.app/api/outstanding/account/${accountId}?type=receivable`,
         {
           withCredentials: true,
         }
@@ -465,7 +465,7 @@ const SalesInvoicesDisplay = () => {
       if (targetId && formData) {
         try {
           const resp = await axios.get(
-            `http://localhost:5000/api/pdf/generate/${targetId}?type=sales`,
+            `https://ledgerstack-backend.vercel.app/api/pdf/generate/${targetId}?type=sales`,
             { withCredentials: true }
           );
           if (resp?.data?.success && resp?.data?.url) {

@@ -358,7 +358,7 @@ const ProformaDisplay = () => {
       if (targetId && formData) {
         try {
           const resp = await axios.get(
-            `http://localhost:5000/api/pdf/generate/${targetId}?type=proforma`,
+            `https://ledgerstack-backend.vercel.app/api/pdf/generate/${targetId}?type=proforma`,
             { withCredentials: true }
           );
           if (resp?.data?.success && resp?.data?.url) {

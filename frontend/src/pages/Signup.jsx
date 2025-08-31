@@ -27,9 +27,9 @@ const Signup = () => {
 
   const navigate = useNavigate();
 
-  const API_URL = import.meta.env.VITE_AUTH_URL || "http://localhost:5000/api/auth";
-  const COMPANY_URL = import.meta.env.VITE_COMPANY_URL || "http://localhost:5000/api/company";
-  const BANK_URL = import.meta.env.VITE_BANK_URL || "http://localhost:5000/api/bank-details";
+  const API_URL = import.meta.env.VITE_AUTH_URL || "https://ledgerstack-backend.vercel.app/api/auth";
+  const COMPANY_URL = import.meta.env.VITE_COMPANY_URL || "https://ledgerstack-backend.vercel.app/api/company";
+  const BANK_URL = import.meta.env.VITE_BANK_URL || "https://ledgerstack-backend.vercel.app/api/bank-details";
 
   // Company Details Modal State
   const [showCompanyModal, setShowCompanyModal] = useState(false);

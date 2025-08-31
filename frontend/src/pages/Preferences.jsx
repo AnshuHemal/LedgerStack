@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
 
-const API = "http://localhost:5000/api/user";
+const API = "https://ledgerstack-backend.vercel.app/api/user";
 
 const Preferences = () => {
   const [loading, setLoading] = useState(true);

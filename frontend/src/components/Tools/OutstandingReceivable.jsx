@@ -12,7 +12,7 @@ const OutstandingReceivable = () => {
   const fetchOutstandingReceivable = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`http://localhost:5000/api/outstanding/receivable`, {
+      const res = await axios.get(`https://ledgerstack-backend.vercel.app/api/outstanding/receivable`, {
         withCredentials: true,
       });
       if (res.data.success) {

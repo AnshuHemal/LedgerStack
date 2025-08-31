@@ -30,8 +30,8 @@ const SubpartsOverview = () => {
     ],
   });
 
-  const PRODUCT_URL = "http://localhost:5000/api/product";
-  const SUBPARTS_URL = "http://localhost:5000/api/subparts";
+  const PRODUCT_URL = "https://ledgerstack-backend.vercel.app/api/product";
+  const SUBPARTS_URL = "https://ledgerstack-backend.vercel.app/api/subparts";
 
   useEffect(() => {
     fetchSubparts();

@@ -12,7 +12,7 @@ const OutstandingPayable = () => {
   const fetchOutstandingPayable = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`http://localhost:5000/api/outstanding/payable`, {
+      const res = await axios.get(`https://ledgerstack-backend.vercel.app/api/outstanding/payable`, {
         withCredentials: true,
       });
       if (res.data.success) {

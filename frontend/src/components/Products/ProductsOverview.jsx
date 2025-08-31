@@ -15,7 +15,7 @@ const ProductsOverview = () => {
   const [categories, setCategories] = useState([]);
   const [types, setTypes] = useState([]);
 
-  const API_BASE = "http://localhost:5000/api/product";
+  const API_BASE = "https://ledgerstack-backend.vercel.app/api/product";
 
   useEffect(() => {
     fetchProductsAvailability();

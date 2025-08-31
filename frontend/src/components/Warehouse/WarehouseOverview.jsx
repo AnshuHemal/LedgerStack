@@ -64,9 +64,9 @@ const WarehouseOverview = () => {
     }
   }, [productSubparts, unallocatedSubpartIds]);
 
-  const PRODUCT_URL = "http://localhost:5000/api/product";
-  const SUBPARTS_URL = "http://localhost:5000/api/subparts";
-  const WAREHOUSE_URL = "http://localhost:5000/api/warehouse";
+  const PRODUCT_URL = "https://ledgerstack-backend.vercel.app/api/product";
+  const SUBPARTS_URL = "https://ledgerstack-backend.vercel.app/api/subparts";
+  const WAREHOUSE_URL = "https://ledgerstack-backend.vercel.app/api/warehouse";
 
   useEffect(() => {
     fetchSkus();

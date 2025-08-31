@@ -75,7 +75,7 @@ const Overview = () => {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  const API_BASE = "http://localhost:5000/api/dashboard";
+  const API_BASE = "https://ledgerstack-backend.vercel.app/api/dashboard";
 
   // Handle tab changes
   const handleTabChange = (tabName) => {
