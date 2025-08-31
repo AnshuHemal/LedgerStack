@@ -19,9 +19,13 @@ import OutstandingReceivable from "./components/Tools/OutstandingReceivable";
 import InventoryManagement from "./components/Inventory/InventoryManagement";
 import GenerateInvoice from "./components/Tools/GenerateInvoice";
 import Preferences from "./pages/Preferences";
+import { useAnalytics } from "./hooks/useAnalytics";
 
 const App = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  
+  // Initialize analytics
+  const analytics = useAnalytics();
 
   useEffect(() => {
     const checkAuthentication = async () => {
@@ -35,16 +39,19 @@ const App = () => {
 
         if (response.data.success) {
           setIsAuthenticated(true);
+          analytics.trackUserAction('authentication', { status: 'success', method: 'token_verification' });
         } else {
           setIsAuthenticated(false);
+          analytics.trackUserAction('authentication', { status: 'failed', method: 'token_verification' });
         }
       } catch (error) {
         setIsAuthenticated(false);
+        analytics.trackError('authentication_error', error.message, { method: 'token_verification' });
       }
     };
 
     checkAuthentication();
-  }, []);
+  }, [analytics]);
   return (
     <>
       <RefreshHandler setIsAuthenticated={setIsAuthenticated} />

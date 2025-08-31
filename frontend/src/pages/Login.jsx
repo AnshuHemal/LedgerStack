@@ -9,6 +9,7 @@ import Lottie from "lottie-react";
 import Microsoft from "../assets/microsoft.webp";
 import Apple from "../assets/apple.png";
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
+import { useAnalytics } from "../hooks/useAnalytics";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -16,6 +17,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
 
   const navigate = useNavigate();
+  const analytics = useAnalytics();
 
   const API_URL = "https://ledgerstack-backend.vercel.app/api/auth";
 
@@ -28,10 +30,13 @@ const Login = () => {
 
     if (!email || !password) {
       toast.error("Field cannot be Empty..");
+      analytics.trackUserAction('login_attempt', { status: 'failed', reason: 'empty_fields' });
       return;
     }
 
     try {
+      analytics.trackUserAction('login_attempt', { status: 'started', method: 'email' });
+      
       const response = await axios.post(
         `${API_URL}/login`,
         { email, password },
@@ -39,10 +44,15 @@ const Login = () => {
       );
 
       if (response.data.success) {
+        analytics.trackLogin('email');
+        analytics.trackUserAction('login_attempt', { status: 'success', method: 'email' });
         navigate("/");
         toast.success("Successfully Logged In..");
       }
     } catch (error) {
+      analytics.trackUserAction('login_attempt', { status: 'failed', method: 'email', error: error.message });
+      analytics.trackError('login_error', error.message, { method: 'email' });
+      
       if (
         error.response &&
         error.response.data &&

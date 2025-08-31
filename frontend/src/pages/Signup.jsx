@@ -8,6 +8,7 @@ import { Link, useNavigate } from "react-router-dom";
 import animation from "../assets/anim5.json";
 import PasswordStrengthMeter from "./PasswordStrengthMeter";
 import Header from "../components/Header";
+import { useAnalytics } from "../hooks/useAnalytics";
 
 const Signup = () => {
   const [email, setEmail] = useState("");
@@ -26,6 +27,7 @@ const Signup = () => {
   const [agreeToTerms, setAgreeToTerms] = useState(false); // Track if the checkbox is checked
 
   const navigate = useNavigate();
+  const analytics = useAnalytics();
 
   const API_URL = import.meta.env.VITE_AUTH_URL || "https://ledgerstack-backend.vercel.app/api/auth";
   const COMPANY_URL = import.meta.env.VITE_COMPANY_URL || "https://ledgerstack-backend.vercel.app/api/company";
@@ -168,25 +170,31 @@ const Signup = () => {
 
     if (!fullname || !email || !password) {
       toast.error("Field cannot be Empty..");
+      analytics.trackUserAction('signup_attempt', { status: 'failed', reason: 'empty_fields' });
       return;
     }
 
     if (!isEmailVerified) {
       toast.error("Please verify your email before signing up.");
+      analytics.trackUserAction('signup_attempt', { status: 'failed', reason: 'email_not_verified' });
       return;
     }
 
     if (!validatePassword()) {
       toast.error(passwordError);
+      analytics.trackUserAction('signup_attempt', { status: 'failed', reason: 'invalid_password' });
       return;
     }
 
     if (!agreeToTerms) {
       toast.error("You must agree to the terms of service and privacy policy.");
+      analytics.trackUserAction('signup_attempt', { status: 'failed', reason: 'terms_not_agreed' });
       return;
     }
 
     try {
+      analytics.trackUserAction('signup_attempt', { status: 'started', method: 'email' });
+      
       const hasAnyCompanyField = Object.entries(companyDetails).some(
         ([k, v]) =>
           k !== "bankDetails" && typeof v === "string" && v.trim() !== ""
@@ -211,12 +219,20 @@ const Signup = () => {
       );
 
       if (response?.data?.success) {
+        analytics.trackSignup('email');
+        analytics.trackUserAction('signup_attempt', { status: 'success', method: 'email' });
+        analytics.trackFeatureUsage('company_details', { 
+          has_company_details: hasAnyCompanyField || anyBankProvided 
+        });
         toast.success("Account created successfully! Default account groups have been set up.");
         navigate("/dashboard");
       } else {
+        analytics.trackUserAction('signup_attempt', { status: 'failed', method: 'email', reason: 'server_error' });
         toast.error("Failed to create account.");
       }
     } catch (error) {
+      analytics.trackUserAction('signup_attempt', { status: 'failed', method: 'email', error: error.message });
+      analytics.trackError('signup_error', error.message, { method: 'email' });
       toast.error(
         error?.response?.data?.message ||
           "Something went wrong. Please try again."
